@@ -13,7 +13,7 @@ func TestCreateTestRunner(t *testing.T) {
 	expectedResult := true
 
 	// check the test result using the testing framework.
-	if result {
+	if result == expectedResult {
 		t.Logf("Test %s: Passed", tr.testName)
 	} else {
 		t.Errorf("Test %s: Expected result was %v, but got %v", tr.testName, expectedResult, result)
