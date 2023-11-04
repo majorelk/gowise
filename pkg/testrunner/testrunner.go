@@ -11,7 +11,7 @@ type TestRunner struct {
 }
 
 // NewTestRunner creates a new TestRunner with the given test name.
-func NewTestRunner(testName string) *testRunner {
+func NewTestRunner(testName string) *TestRunner {
 	return &TestRunner{
 		testName: testName,
 	}
@@ -19,7 +19,7 @@ func NewTestRunner(testName string) *testRunner {
 
 // RunTest executes a test with the specified test name.
 func (tr *TestRunner) RunTest() {
-	fmt.Printf("Running test %s\n", re.testName)
+	fmt.Printf("Running test %s\n", tr.testName)
 	// add execution logic here.
 }
 
