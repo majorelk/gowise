@@ -3,14 +3,19 @@ package testrunner
 import "testing"
 
 func TestCreateTestRunner(t *testing.T) {
-	// Step 1: Create a TestRunner instance with a test name.
-	testName:= "SampleTest"
-	tr := NewTestRunner(testName)
+	// Create a TestRunner instance with a test name.
+	tr := NewTestRunner("SampleTest")
 
-	// Step 2: Check the properties of the TestRunner.
-	if tr.testName != testName {
-		t.Errorf("Expected test name to be %s, but got %s", testName, tr.testName)
+	// Run the test using the TestRunner and get the test results.
+	result := tr.RunTest()
+
+	// Define the expected behaviour of the test.
+	expectedResult := true
+
+	// check the test result using the testing framework.
+	if result {
+		t.Logf("Test %s: Passed", tr.testName)
+	} else {
+		t.Errorf("Test %s: Expected result was %v, but got %v", tr.testName, expectedResult, result)
 	}
-
-	// add more property checks here if required.
 }

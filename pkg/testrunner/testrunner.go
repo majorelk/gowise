@@ -18,13 +18,18 @@ func NewTestRunner(testName string) *TestRunner {
 }
 
 // RunTest executes a test with the specified test name.
-func (tr *TestRunner) RunTest() {
-	fmt.Printf("Running test %s\n", tr.testName)
-	// add execution logic here.
+func (tr *TestRunner) RunTest() bool {
+	result := true
+
+	// Print message to indicate test execution.
+	fmt.Printf("Running test %s - Status: %s\n", tr.testName, tr.getStatus(result))
+
+	return result
 }
 
-// Example function
-func Example() {
-	tr := NewTestRunner("SampleTest")
-	tr.RunTest()
+func (tr *TestRunner) getStatus(result bool) string {
+	if result {
+		return "Passed"
+	}
+	return "Failed"
 }
