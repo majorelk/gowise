@@ -7,8 +7,9 @@ func TestCreateTestRunner(t *testing.T) {
 	tr := NewTestRunner("SampleTest")
 
 	// Run the test using the TestRunner and get the test results.
-	result := tr.RunTest()
+	tr.RunTest("TestCreateTestRunner", func(t *testing.T, assert *Assertions) {
 
+	}
 	// Define the expected behaviour of the test.
 	expectedResult := true
 
