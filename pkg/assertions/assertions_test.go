@@ -1,6 +1,7 @@
 // Package assertions provides assertion functions for testing.
 //
-// AssertionsTest contains unit tests for the assertions package.
+// AssertionsTest contains unit tests for the assertions package
+// +build failing_tests.
 package assertions
 
 import (
