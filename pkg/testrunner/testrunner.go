@@ -1,9 +1,13 @@
+// Package testrunner provides a basic test runner for running tests.
+//
+// TestRunner is a utility package that offers a basic structure for running
+// tests and reporting results.
 package testrunner
 
 import (
 	"fmt"
 	"testing"
-	"gowise/pkg/assertions"
+	"gowise/pkg/assertions" // Import assertions package
 )
 
 // TestRunner represents a basic test runner component.

@@ -1,3 +1,15 @@
+// Package assertions provides assertion functions for testing.
+//
+// Assertions is a utility package that offers functions to perform common
+// assertion checks in tests.
+//
+// Example:
+//
+//     assert := assertions.New(t)
+//     assert.True(true)
+//     if assert.Error() != "" {
+//         t.Errorf("Expected no error, but got: %s", assert.Error())
+//     }
 package assertions
 
 import (

@@ -1,3 +1,6 @@
+// Package assertions provides assertion functions for testing.
+//
+// AssertionsTest contains unit tests for the assertions package.
 package assertions
 
 import (
@@ -5,6 +8,7 @@ import (
 	"fmt"
 )
 
+// TestAssertions runs a set of tests to validate the assertion functions.
 func TestAssertions(t *testing.T) {
 	t.Run("Equal", func(t *testing.T) {
 		assert := New(t)

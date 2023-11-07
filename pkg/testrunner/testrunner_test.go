@@ -1,3 +1,6 @@
+// Package testrunner provides a basic test runner for running tests.
+//
+// TestRunnerTest contains unit tests for the testrunner package.
 package testrunner
 
 import (
@@ -5,6 +8,7 @@ import (
 	"gowise/pkg/assertions" // Import the assertions package
 )
 
+// TestCreateTestRunner is an example test case for creating a TestRunner and using assertions in tests.
 func TestCreateTestRunner(t *testing.T) {
 	tr := NewTestRunner(t)
 

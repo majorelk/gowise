@@ -1,3 +1,7 @@
+// Package sliceassert provides slice comparison functions for testing.
+//
+// SliceAssert is a utility package that offers a function to compare slices for
+// equality, allowing deep comparison.
 package sliceassert
 
 import (
