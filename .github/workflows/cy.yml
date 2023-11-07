@@ -15,6 +15,9 @@ jobs:
         with:
           go-version: 1.18.1
 
-      - name: Run tests
+      - name: Run Normal tests
         run: go test ./...
 
+      - name: Run Failing Tests
+        run: go test ./... -tags failing_tests
+        continue-on-error: true # This ensures that the workflow continues even if these tests fail
