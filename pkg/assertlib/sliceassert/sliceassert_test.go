@@ -2,51 +2,51 @@
 //
 // SliceAssertTest contains unit tests for the sliceassert package.
 
-// +build failing_tests
-
 package sliceassert
 
 import (
 	"testing"
 )
 
-// TestSliceIsEqual_Pass tests SliceIsEqual with equal slices.
-func TestSliceIsEqual_Pass(t *testing.T) {
-	expectedSlice := []int{1, 2, 3}
-	actualSlice := []int{1, 2, 3}
-	
-	SliceIsEqual(t,actualSlice, expectedSlice)
+// TestSliceIsEqual contains the regular tests for the sliceassert package.
+func TestSliceIsEqual(t *testing.T) {
+	t.Run("Pass", func(t *testing.T) {
+		expectedSlice := []int{1, 2, 3}
+		actualSlice := []int{1, 2, 3}
+
+		SliceIsEqual(t, actualSlice, expectedSlice)
+	})
 }
 
-// TestSliceIsEqual_FailDifferentLengths tests SliceIsEqual with different length slices.
-func TestSliceIsEqual_FailDifferentLengths(t *testing.T) {
-	expectedSlice := []int{1, 2, 3}
-	actualSlice := []int{1, 2, 3, 4}
-	
-	SliceIsEqual(t,actualSlice, expectedSlice)
-}
+// TestSliceIsEqual_Failing contains intentionally failing tests.
+// +build failing_tests
+func TestSliceIsEqual_Failing(t *testing.T) {
+	t.Run("FailDifferentLengths", func(t *testing.T) {
+		expectedSlice := []int{1, 2, 3}
+		actualSlice := []int{1, 2, 3, 4}
 
-// TestSliceIsEqual_FailNotDeeplyEqual tests SliceIsEqual with not deeply equal slices.
-func TestSliceIsEqual_FailNotDeeplyEqual(t *testing.T) {
-	expectedSlice := []int{1, 2, 3}
-	actualSlice := []int{3, 2, 1}
-	
-	SliceIsEqual(t,actualSlice, expectedSlice)
-}
+		SliceIsEqual(t, actualSlice, expectedSlice)
+	})
 
-// TestSliceIsEqual_FailDifferentTypes tests SliceIsEqual with slices of different types.
-func TestSliceIsEqual_FailDifferentTypes(t *testing.T) {
-	expectedSlice := []int{1, 2, 3}
-	actualSlice := []string{"1", "2", "3"}
+	t.Run("FailNotDeeplyEqual", func(t *testing.T) {
+		expectedSlice := []int{1, 2, 3}
+		actualSlice := []int{3, 2, 1}
 
-	SliceIsEqual(t,actualSlice, expectedSlice)
-}
+		SliceIsEqual(t, actualSlice, expectedSlice)
+	})
 
-// TestSliceIsEqual_FailNotSlice tests SliceIsEqual with a non-slice value.
-func TestSliceIsEqual_FailNotSlice(t *testing.T) {
-	expectedSlice := []int{1, 2, 3}
-	actualNotSlice := 123 // Not a slice
+	t.Run("FailDifferentTypes", func(t *testing.T) {
+		expectedSlice := []int{1, 2, 3}
+		actualSlice := []string{"1", "2", "3"}
 
-	SliceIsEqual(t,actualNotSlice, expectedSlice) // Should fail with Undefined error
+		SliceIsEqual(t, actualSlice, expectedSlice)
+	})
+
+	t.Run("FailNotSlice", func(t *testing.T) {
+		expectedSlice := []int{1, 2, 3}
+		actualNotSlice := 123 // Not a slice
+
+		SliceIsEqual(t, actualNotSlice, expectedSlice) // Should fail with an "Assertion failed" error
+	})
 }
 
