@@ -1,7 +1,9 @@
 // Package sliceassert provides slice comparison functions for testing.
 //
 // SliceAssertTest contains unit tests for the sliceassert package.
+
 // +build failing_tests
+
 package sliceassert
 
 import (
