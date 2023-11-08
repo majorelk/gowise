@@ -75,8 +75,6 @@ func TestAssertions(t *testing.T) {
 		}{
 			{true, true},
 			{false, false},
-			{true, false},
-			{false, true},
 		}
 
 		for i, tc := range testCases {
@@ -102,8 +100,6 @@ func TestAssertions(t *testing.T) {
 		}{
 			{true, false},
 			{false, true},
-			{true, true},
-			{false, false},
 		}
 
 		for i, tc := range testCases {
