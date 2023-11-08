@@ -21,7 +21,7 @@ func TestAssertions(t *testing.T) {
 		}{
 			{42, 42, true},
 			{true, true, true},
-			{false,false,true}
+			{false,false,true},
 		}
 
 		for i, tc := range testCases {
