@@ -4,6 +4,10 @@
 
 package sliceassert
 
+import (
+	"testing"
+)
+
 func TestSliceIsEqual_Failing(t *testing.T) {
 	t.Run("FailDifferentLengths", func(t *testing.T) {
 		expectedSlice := []int{1, 2, 3}
