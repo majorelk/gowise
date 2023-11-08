@@ -1,25 +1,9 @@
-// Package sliceassert provides slice comparison functions for testing.
-//
-// SliceAssertTest contains unit tests for the sliceassert package.
+// TestSliceIsEqual_Failing contains intentionally failing tests.
+
+// +build failing_tests
 
 package sliceassert
 
-import (
-	"testing"
-)
-
-// TestSliceIsEqual contains the regular tests for the sliceassert package.
-func TestSliceIsEqual(t *testing.T) {
-	t.Run("Pass", func(t *testing.T) {
-		expectedSlice := []int{1, 2, 3}
-		actualSlice := []int{1, 2, 3}
-
-		SliceIsEqual(t, actualSlice, expectedSlice)
-	})
-}
-
-// TestSliceIsEqual_Failing contains intentionally failing tests.
-// +build failing_tests
 func TestSliceIsEqual_Failing(t *testing.T) {
 	t.Run("FailDifferentLengths", func(t *testing.T) {
 		expectedSlice := []int{1, 2, 3}
@@ -49,4 +33,3 @@ func TestSliceIsEqual_Failing(t *testing.T) {
 		SliceIsEqual(t, actualNotSlice, expectedSlice) // Should fail with an "Assertion failed" error
 	})
 }
-
