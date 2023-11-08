@@ -7,7 +7,6 @@ package assertions
 import (
 	"testing"
 	"fmt"
-	"gowise/pkg/assertions"
 )
 
 func TestAssertions_Failing(t *testing.T) {
