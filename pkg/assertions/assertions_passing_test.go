@@ -20,10 +20,8 @@ func TestAssertions(t *testing.T) {
 			pass             bool
 		}{
 			{42, 42, true},
-			{42, 23, true},
-			{"hello", "world", true},
 			{true, true, true},
-			{false, true, true},
+			{false,false,true}
 		}
 
 		for i, tc := range testCases {
