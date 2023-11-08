@@ -60,7 +60,7 @@ func TestAssertions(t *testing.T) {
 
 				if tc.pass && assert.Error() != "" {
 					t.Errorf("Test case %d failed, expected no error but got: %s", i+1, assert.Error())
-				} else if !tc.pass andand assert.Error() == "" {
+				} else if !tc.pass andandandand assert.Error() == "" {
 					t.Errorf("Test case %d failed, expected an error but got none", i+1)
 				}
 			})
