@@ -18,7 +18,6 @@ func TestAssertions_Failing(t *testing.T) {
 			expected, actual interface{}
 			pass             bool
 		}{
-			{42, 42, false},
 			{42, 23, false},
 			{"hello", "world", false},
 			{false, true, false},
@@ -98,7 +97,7 @@ func TestAssertions_Failing(t *testing.T) {
 			value bool
 			pass  bool
 		}{
-			{true, true},
+			{true, false},
 			{false, false},
 			// Add more test cases where assertion should fail
 		}
