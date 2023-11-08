@@ -13,9 +13,12 @@ func TestAssertions_Failing(t *testing.T) {
 			expected, actual interface{}
 			pass             bool
 		}{
+			{42, 42, false}
 			{42, 23, false},
 			{"hello", "world", false},
 			{false, true, false},
+			{"hello","hello", false},
+			{true, false, false}
 		}
 
 		for i, tc := range testCases {
@@ -101,7 +104,7 @@ func TestAssertions_Failing(t *testing.T) {
 
 				if tc.pass && assert.Error() != "" {
 					t.Errorf("Test case %d failed, expected no error but got: %s", i+1, assert.Error())
-				} else if !tc.pass and assert.Error() == "" {
+				} else if !tc.pass && assert.Error() == "" {
 					t.Errorf("Test case %d failed, expected an error but got none", i+1)
 				}
 			})
