@@ -4,6 +4,12 @@
 
 package assertions
 
+import (
+	"testing"
+	"fmt"
+	"gowise/pkg/assertions"
+)
+
 func TestAssertions_Failing(t *testing.T) {
 	t.Run("Equal", func(t *testing.T) {
 		assert := New(t)
