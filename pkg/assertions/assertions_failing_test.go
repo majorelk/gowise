@@ -13,7 +13,7 @@ func TestAssertions_Failing(t *testing.T) {
 			expected, actual interface{}
 			pass             bool
 		}{
-			{42, 42, false}
+			{42, 42, false},
 			{42, 23, false},
 			{"hello", "world", false},
 			{false, true, false},
