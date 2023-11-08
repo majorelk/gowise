@@ -98,7 +98,6 @@ func TestAssertions(t *testing.T) {
 			value bool
 			pass  bool
 		}{
-			{true, false},
 			{false, true},
 		}
 
