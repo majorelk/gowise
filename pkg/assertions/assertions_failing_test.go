@@ -18,7 +18,7 @@ func TestAssertions_Failing(t *testing.T) {
 			{"hello", "world", false},
 			{false, true, false},
 			{"hello","hello", false},
-			{true, false, false}
+			{true, false, false},
 		}
 
 		for i, tc := range testCases {
