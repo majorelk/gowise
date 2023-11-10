@@ -1,7 +1,7 @@
+// testmessage_test.go
 package testmessage
 
 import (
-	"encoding/json"
 	"testing"
 )
 
