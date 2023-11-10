@@ -1,29 +1,28 @@
-// Package teststatus provides an enumeration for the result of running a test
+// Package teststatus provides enums and interfaces for test statuses.
 package teststatus
 
-// TestStatus represents the result of running a test
+// TestStatus is an interface for representing the result of running a test.
 type TestStatus interface {
 	GetResult() string
 }
 
-
-// Result represents a test result
-type Result string
+// Result is an enum-like type representing different test results.
+type Result int
 
 const (
-	// Inconclusive indicates that the test was inconclusive
-	Inconclusive Result = "Inconclusive"
-
-	// Skipped indicates that the test has been skipped
-	Skipped Result = "Skipped"
-
-	// Passed indicates that the test succeeded
-	Passed Result = "Passed"
-
-	// Warning indicates that there was a warning
-	Warning Result = "Warning"
-
-	// Failed indicates that the test failed
-	Failed Result = "Failed"
+	Passed Result = iota
+	Failed
 )
+
+// GetResult returns the string representation of the test result.
+func (r Result) GetResult() string {
+	switch r {
+	case Passed:
+		return "Passed"
+	case Failed:
+		return "Failed"
+	default:
+		return "Unknown"
+	}
+}
 

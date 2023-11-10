@@ -26,7 +26,7 @@ func NewTestRunner(t *testing.T) *TestRunner {
 // RunTest executes a test with the specified test name.
 func (tr *TestRunner) RunTest(testName string, testFunc func(assert *assertions.Assert) teststatus.TestStatus) {
 	assert := assertions.New(tr.t)
-	result :- testFunc(assert)
+	result := testFunc(assert)
 
 	// Use the GetResult method to get the result as a string
 	resultString := result.GetResult()
