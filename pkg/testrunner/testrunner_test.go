@@ -16,15 +16,16 @@ func TestCreateTestRunner(t *testing.T) {
 	tr.RunTest("TestCreateTestRunner", func(assert *assertions.Assert) teststatus.TestStatus {
 		// Use assertions.Assert type
 		// Testing if 2 + 2 equals 4
-		if !assert.True(2+2 == 4) {
-			// Return the test result using teststatus.Failed if the assertion fails
+		assert.True(2+2 == 4)
+
+		// Check the assertion result
+		if assert.Error() != "" {
+			// Return the test result using teststatus.Failed if there is an error
 			return teststatus.Result(teststatus.Failed)
 		}
 
 		// Return the test result using teststatus.Passed if the assertion passes
 		return teststatus.Result(teststatus.Passed)
-
-
 	})
 }
 
