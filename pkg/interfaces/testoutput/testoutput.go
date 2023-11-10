@@ -3,6 +3,7 @@ package testoutput
 
 import (
 	"encoding/json"
+	"io"
 )
 
 // TestOutput holds a unit of output from a test to a specific output stream
@@ -30,7 +31,7 @@ func (to TestOutput) ToJSON() string {
 }
 
 // ToJSONWriter writes the TestOutput object to a JSON writer
-func (to TestOutput) ToJSONWriter(writer Writer) error {
+func (to TestOutput) ToJSONWriter(writer io.Writer) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(to)

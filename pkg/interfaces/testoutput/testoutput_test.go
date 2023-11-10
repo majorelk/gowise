@@ -1,35 +1,32 @@
 // testoutput_test.go
-
 package testoutput
 
 import (
-	"encoding/json"
+	"strings"
 	"testing"
 )
 
+
+var expectedJSON = `{
+  "text": "Hello, World!",
+  "stream": "stdout",
+  "testid": "test123",
+  "testname": "ExampleTest"
+}`
+
+ // TestToJSON Function
 func TestToJSON(t *testing.T) {
-	expectedJSON := `{
-		"text": "Hello, World!",
-		"stream": "stdout",
-		"testid": "test123",
-		"testname": "ExampleTest"
-	}`
 
 	output := NewTestOutput("Hello, World!", "stdout", "test123", "ExampleTest")
 	actualJSON := output.ToJSON()
 
-	if actualJSON != expectedJSON {
+	if strings.TrimSpace(actualJSON) != strings.TrimSpace(expectedJSON) {
 		t.Errorf("Expected JSON:\n%s\n\nActual JSON:\n%s", expectedJSON, actualJSON)
 	}
 }
 
+// TestToJSONWriter Function
 func TestToJSONWriter(t *testing.T) {
-	expectedJSON := `{
-		"text": "Hello, World!",
-		"stream": "stdout",
-		"testid": "test123",
-		"testname": "ExampleTest"
-	}`
 
 	output := NewTestOutput("Hello, World!", "stdout", "test123", "ExampleTest")
 
@@ -42,7 +39,7 @@ func TestToJSONWriter(t *testing.T) {
 
 	actualJSON := actualBuilder.String()
 
-	if actualJSON != expectedJSON {
+	if strings.TrimSpace(actualJSON) != strings.TrimSpace(expectedJSON) {
 		t.Errorf("Expected JSON:\n%s\n\nActual JSON:\n%s", expectedJSON, actualJSON)
 	}
 }
