@@ -6,7 +6,7 @@ package testrunner
 import (
 	"testing"
 	"gowise/pkg/assertions"    // Import the assertions package
-	"gowise/pkg/teststatus"    // Import the teststatus package
+	"gowise/pkg/interfaces/teststatus"    // Import the teststatus package
 )
 
 // TestCreateTestRunner is an example test case for creating a TestRunner and using assertions in tests.

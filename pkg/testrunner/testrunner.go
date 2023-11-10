@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"testing"
 	"gowise/pkg/assertions" // Import assertions package
-	"gowise/pkg/teststatus" // Import assertions package
+	"gowise/pkg/interfaces/teststatus" // Import assertions package
 )
 
 // TestRunner represents a basic test runner component.
