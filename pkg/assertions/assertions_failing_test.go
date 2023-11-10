@@ -18,15 +18,20 @@ func TestAssertions_Failing(t *testing.T) {
 			expected, actual interface{}
 			pass             bool
 		}{
-			{42, 23, false},
-			{"hello", "world", false},
-			{false, true, false},
-			{"hello","hello", false},
-			{true, false, false},
+			{42, 23, true}, 		// different values int should fail
+			{"hello", "world", true}, 	// different string should fail
+			{false, true, true}, 		// differet bool should fail
+			{"hello","hello", false}, 	// same value marked fals should fail
+			{true, false, true},		// opposite different bool should fail
+			{42, "42", false},		// Different types
+			{[]int{1, 2, 3}, []int{1, 2}, false}, // Different slice lengths
+			{struct{ X, Y int }{1, 2}, struct{ X, Y int }{1}, false}, // Different struct fields
+			{map[string]int{"a": 1}, map[string]int{"b": 2}, false}, // Different map key-value pairs
 		}
 
 		for i, tc := range testCases {
 			t.Run(fmt.Sprintf("Test case %d", i+1), func(t *testing.T) {
+
 				assert.Equal(tc.expected, tc.actual)
 
 				if tc.pass && assert.Error() != "" {
@@ -46,8 +51,10 @@ func TestAssertions_Failing(t *testing.T) {
 			expected, actual interface{}
 			pass             bool
 		}{
-			{42, 42, false},
-			// Add more test cases where expected and actual values are intentionally equal
+			{42, 42, true},  // Identical values
+			{[]int{1, 2}, []int{1, 2}, true}, // Identical slices
+			{struct{ X, Y int }{1, 2}, struct{ X, Y int }{1, 2}, true}, // Identical structs
+			{map[string]int{"a": 1}, map[string]int{"a": 1}, true}, // Identical maps
 		}
 
 		for i, tc := range testCases {
@@ -71,9 +78,10 @@ func TestAssertions_Failing(t *testing.T) {
 			value bool
 			pass  bool
 		}{
-			{true, true},
-			{false, false},
-			// Add more test cases where assertion should fail
+			{true, false}, // Expected false, but actual is true
+			{false, true}, // Expected true, but actual is false
+			{0, true},     // Expected true, but actual is 0
+			{"", true},    // Expected true, but actual is an empty string
 		}
 
 		for i, tc := range testCases {
@@ -97,9 +105,9 @@ func TestAssertions_Failing(t *testing.T) {
 			value bool
 			pass  bool
 		}{
-			{true, false},
-			{false, false},
-			// Add more test cases where assertion should fail
+			{true, true},     // Expected false, but actual is true
+			{1, true},        // Expected false, but actual is 1
+			{"hello", true},  // Expected false, but actual is a non-empty string
 		}
 
 		for i, tc := range testCases {

@@ -5,18 +5,21 @@ package testrunner
 
 import (
 	"testing"
-	"gowise/pkg/assertions" // Import the assertions package
+	"gowise/pkg/assertions"    // Import the assertions package
+	"gowise/pkg/teststatus"    // Import the teststatus package
 )
 
 // TestCreateTestRunner is an example test case for creating a TestRunner and using assertions in tests.
 func TestCreateTestRunner(t *testing.T) {
 	tr := NewTestRunner(t)
 
-	tr.RunTest("TestCreateTestRunner", func(assert *assertions.Assert) error { 
+	tr.RunTest("TestCreateTestRunner", func(assert *assertions.Assert) teststatus.TestStatus {
 		// Use assertions.Assert type
 		// Testing if 2 + 2 equals 4
 		assert.True(2+2 == 4)
-		return nil
+
+		// Return the test result using teststatus.Passed
+		return teststatus.Passed
 	})
 }
 
