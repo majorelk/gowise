@@ -30,8 +30,7 @@ func (tm TestMessage) ToString() string {
 func (tm TestMessage) ToJSON() (string, error) {
 	data, err := json.Marshal(tm)
 	if err != nil {
-		log.Printf("Error marshalling TestMessage to JSON: %v", err)
-		return "", err
+		return "", fmt.Errorf("Error marshalling TestMessage to JSON: %w", err)
 	}
 	return string(data), nil
 }
