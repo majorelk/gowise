@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 	"gowise/pkg/assertions" // Import assertions package
+	"gowise/pkg/interfaces/teststatus" // Import assertions package
 )
 
 // TestRunner represents a basic test runner component.
@@ -23,19 +24,17 @@ func NewTestRunner(t *testing.T) *TestRunner {
 }
 
 // RunTest executes a test with the specified test name.
-func (tr *TestRunner) RunTest(testName string, testFunc func(assert *assertions.Assert) error) {
+func (tr *TestRunner) RunTest(testName string, testFunc func(assert *assertions.Assert) teststatus.TestStatus) {
 	assert := assertions.New(tr.t)
-	if err := testFunc(assert); err != nil {
-		tr.t.Errorf("Test %s failed: %v", testName, err)
-	} else {
-		fmt.Printf("Test %s passed\n", testName)
-	}
-}
+	result := testFunc(assert)
 
-func (tr *TestRunner) getStatus(result bool) string {
-	if result {
-		return "Passed"
+	// Use the GetResult method to get the result as a string
+	resultString := result.GetResult()
+
+	if resultString == teststatus.Passed.GetResult() {
+		fmt.Printf("Test %s passed\n", testName)
+	} else {
+		tr.t.Errorf("Test %s failed: %v", testName, resultString)
 	}
-	return "Failed"
 }
 
