@@ -1,19 +1,32 @@
 package testattachment
 
-import "testing"
+import (
+	"testing"
+	"os"
+	"io/ioutil"
+)
 
 func TestNewTestAttachment(t *testing.T) {
-	filePath := "/path/to/attachment.txt"
-	description := "This is a test attachment."
+	tempFile, err := ioutil.TempFile("", "attachment_*.txt")
+	if err != nil {
+		t.Fatalf("Error creating temporary file: %v", err)
+	}
+	defer os.Remove(tempFile.Name())
 
-	attachment := NewTestAttachment(filePath, description)
+	attachment, err := NewTestAttachment(tempFile.Name(), "This is a test attachment.")
 
-	if attachment.FilePath != filePath {
-		t.Errorf("Expected FilePath to be %s, but got %s", filePath, attachment.FilePath)
+	if err != nil {
+		t.Errorf("Error creating TestAttachment: %v", err)
+		return
 	}
 
-	if attachment.Description != description {
-		t.Errorf("Expected Description to be %s, but got %s", description, attachment.Description)
+	if attachment.FilePath != tempFile.Name() {
+		t.Errorf("Expected FilePath to be %s, but got %s", tempFile.Name(), attachment.FilePath)
+	}
+
+	if attachment.Description != "This is a test attachment." {
+		t.Errorf("Expected Description to be 'This is a test attachment.', but got %s", attachment.Description)
 	}
 }
+
 
