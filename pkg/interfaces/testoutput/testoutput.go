@@ -34,6 +34,9 @@ func (to TestOutput) ToJSON() string {
 func (to TestOutput) ToJSONWriter(writer io.Writer) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(to)
+	if err := encoder.Encode(to); err != nil {
+		return fmt.Errorf("Error encoding TestOutput to JSON: %w", err)
+	}
+	return nil
 }
 
