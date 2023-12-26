@@ -4,6 +4,7 @@ package testoutput
 import (
 	"encoding/json"
 	"io"
+	"errors"
 )
 
 // TestOutput holds a unit of output from a test to a specific output stream
@@ -34,6 +35,9 @@ func (to TestOutput) ToJSON() string {
 func (to TestOutput) ToJSONWriter(writer io.Writer) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(to)
+	if err := encoder.Encode(to); err != nil {
+		return errors.New("Error encoding TestOutput to JSON: " + err.Error())
+	}
+	return nil
 }
 
