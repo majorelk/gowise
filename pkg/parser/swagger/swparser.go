@@ -5,13 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"fmt"
 )
 
 // SwaggerInfo represents the relevant information from a Swagger file.
 type SwaggerInfo struct {
-	Version	string `json:"swagger"`
-	Title 	string `json:"title"`i
+	Version string    `json:"swagger"`
+	Info    InfoField `json:"info"`
 }
+
+type InfoField struct {
+	Version string `json:"version"`
+	Title   string `json:"title"`
+}
+
 
 // ParseSwaggerFile parses a Swagger/ OpenAPI file
 //
@@ -35,13 +42,16 @@ func ParseSwaggerFile(filePath string) (*SwaggerInfo, error) {
 		return nil, err
 	}
 
+	fmt.Printf("Parsed SwaggerInfo: %v\n", swaggerInfo)
+
 	// Validate that the required fields are present
 	if swaggerInfo.Version == "1.0" {
 		// Need methods to handle version 1.0 if needed
 	} else {
 		switch swaggerInfo.Version {
 		case "2.0", "3.0":
-			if swaggerInfo.Title =="" {
+			if swaggerInfo.Info.Title =="" {
+				fmt.Println("Title is empty")
 				return nil, errors.New("Invalid Swagger file format: Title is required")
 			}
 		// Need more validation methods for versions 2.0 and 3.0
