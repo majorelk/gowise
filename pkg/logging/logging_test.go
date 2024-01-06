@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestNewLogger(t *testing.T) {
@@ -12,6 +13,10 @@ func TestNewLogger(t *testing.T) {
 	if logger.logLevel != INFO {
 		t.Errorf("Expected log level %v, got %v", INFO, logger.logLevel)
 	}
+}
+
+func logDateString() string {
+	return time.Now().Format("2006/01/02 15:04:05")
 }
 
 func TestLogInfo(t *testing.T) {
@@ -50,4 +55,3 @@ func TestLogError(t *testing.T) {
 		t.Errorf("Expected log output %q, got %q", expectedOutput, buf.String())
 	}
 }
-
