@@ -2,14 +2,13 @@ package grpcparser
 
 import (
 	"strings"
-	"fmt"
 )
 
 // GRPCInfo represents information parsed from a gRPC message
 type GRPCInfo struct {
-	ServiceName 	string
-	MethodName	string
-	Params		map[string]string
+	ServiceName string
+	MethodName  string
+	Params      map[string]string
 }
 
 // ParseGRPCMessage parses a gRPC message and returns relevant information.
@@ -20,23 +19,16 @@ func ParseGRPCMessage(message string) *GRPCInfo {
 
 	if len(parts) >= 2 {
 		grpcInfo.ServiceName = parts[0]
-		grpcInfo.MethodName = parts[1]
-	}
 
-	// Extract parameters from the method
-	if len(parts) >= 3 {
-		paramsAndMethod := strings.Split(parts[2], "?")
+		// Split the method part into the method name and parameters
+		methodAndParams := strings.Split(parts[1], "?")
+		grpcInfo.MethodName = methodAndParams[0]
 
-		// Print statements for debugging
-		fmt.Println("Message:", message)
-		fmt.Println("Parts:", parts)
-		fmt.Println("ParamsAndMethod:", paramsAndMethod)
-
-		// Extract Parameters if present
-		if len(paramsAndMethod) > 1 {
+		// Extract parameters if present
+		if len(methodAndParams) > 1 {
 			grpcInfo.Params = make(map[string]string)
 
-			for _, param := range strings.Split(paramsAndMethod[1], "&") {
+			for _, param := range strings.Split(methodAndParams[1], "&") {
 				keyVal := strings.Split(param, "=")
 
 				if len(keyVal) == 2 {
@@ -44,14 +36,7 @@ func ParseGRPCMessage(message string) *GRPCInfo {
 				}
 			}
 		}
-		
-
-		// Print statements for debugging
-		fmt.Println("Message:", message)
-		fmt.Println("Parts:", parts)
-		fmt.Println("ParamsAndMethod:", paramsAndMethod)
-
 	}
-	
+
 	return grpcInfo
 }
