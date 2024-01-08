@@ -34,7 +34,7 @@ func TestReportTestOutput(t *testing.T) {
 	r, _ := NewReporter(filePath)
 	defer r.Close()
 
-	to := testoutput.NewTestOutput("text", "stream", "testID", "testName")
+	to := testoutput.NewTestOutput("text", "stream", "testID", "testName", "status")
 	err := r.ReportTestOutput(to)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)

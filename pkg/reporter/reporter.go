@@ -8,6 +8,7 @@ import (
 	"gowise/pkg/interfaces/testattachment"
 	"gowise/pkg/interfaces/testmessage"
 	"gowise/pkg/interfaces/testoutput"
+	"gowise/pkg/interfaces/teststatus"
 )
 
 type Reporter struct {
@@ -52,4 +53,41 @@ func (r *Reporter) Close() error {
 		return closer.Close()
 	}
 	return nil
+}
+
+// TestReport represents a test report.
+type TestReport struct {
+	Total   int
+	Passed  int
+	Failed  int
+	Results []teststatus.TestStatus
+}
+
+// NewTestReport creates a new TestReport.
+func NewTestReport() *TestReport {
+	return &TestReport{
+		Total:   0,
+		Passed:  0,
+		Failed:  0,
+		Results: []teststatus.TestStatus{},
+	}
+}
+
+// AddResult adds a test result to the report.
+func (r *TestReport) AddResult(result teststatus.TestStatus) {
+	r.Total++
+	if result.GetResult() == teststatus.Passed.GetResult() {
+		r.Passed++
+	} else {
+		r.Failed++
+	}
+	r.Results = append(r.Results, result)
+}
+
+// ReporterInterface represents the interface for a reporter.
+type ReporterInterface interface {
+	ReportTestOutput(to testoutput.TestOutput) error
+	ReportTestMessage(tm testmessage.TestMessage) error
+	ReportTestAttachment(ta testattachment.TestAttachment) error
+	Close() error
 }
