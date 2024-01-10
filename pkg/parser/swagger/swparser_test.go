@@ -15,25 +15,25 @@ func TestParseSwaggerFile(t *testing.T) {
 		assertNoError(t, err)
 	})
 
-	t.Run("Invalid Swagger File", func(t *testing.T) {
+	t.Run("Invalid_Swagger_File", func(t *testing.T) {
 		tmpSwaggerFile := createTempFile(t, "invalid_swagger.json", `{"swagger": "2.0", "info": {"version": "1.0", "title": ""}, "paths": {"/test": {"get": {"summary": "Test API"}}}}`)
 		defer removeTempFile(t, tmpSwaggerFile)
 
 		_, err := ParseSwaggerFile(tmpSwaggerFile)
 		assertError(t, err)
 
-		expectedErrorMessage := "Invalid Swagger file format: Title is required"
+		expectedErrorMessage := "invalid Swagger file format: Title is required"
 		assertEqual(t, err.Error(), expectedErrorMessage)
 	})
 
 	t.Run("Swagger 1.0 File", func(t *testing.T) {
-		tmpSwaggerFile := createTempFile(t, "swagger1.json", `{"swaggerVersion": "1.0", "apiVersion": "1.0", "basePath": "/", "apis": [{"path": "/test", "description": "Test API"}]}`)
+		tmpSwaggerFile := createTempFile(t, "swagger1.json", `{"swaggerVersion": "", "apiVersion": "1.0", "basePath": "/", "apis": [{"path": "/test", "description": "Test API"}]}`)
 		defer removeTempFile(t, tmpSwaggerFile)
 
 		_, err := ParseSwaggerFile(tmpSwaggerFile)
 		assertError(t, err)
 
-		expectedErrorMessage := "Unsupported Swagger version"
+		expectedErrorMessage := "unsupported Swagger version"
 		assertEqual(t, err.Error(), expectedErrorMessage)
 	})
 
