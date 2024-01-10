@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
-
 var expectedJSON = `{
   "text": "Hello, World!",
   "stream": "stdout",
@@ -14,10 +13,9 @@ var expectedJSON = `{
   "testname": "ExampleTest"
 }`
 
- // TestToJSON Function
+// TestToJSON Function
 func TestToJSON(t *testing.T) {
-
-	output := NewTestOutput("Hello, World!", "stdout", "test123", "ExampleTest")
+	output := NewTestOutput("Hello, World!", "stdout", "test123", "ExampleTest", "Passed")
 	actualJSON := output.ToJSON()
 
 	if strings.TrimSpace(actualJSON) != strings.TrimSpace(expectedJSON) {
@@ -27,8 +25,7 @@ func TestToJSON(t *testing.T) {
 
 // TestToJSONWriter Function
 func TestToJSONWriter(t *testing.T) {
-
-	output := NewTestOutput("Hello, World!", "stdout", "test123", "ExampleTest")
+	output := NewTestOutput("Hello, World!", "stdout", "test123", "ExampleTest", "Passed")
 
 	var actualBuilder strings.Builder
 	err := output.ToJSONWriter(&actualBuilder)
@@ -43,4 +40,3 @@ func TestToJSONWriter(t *testing.T) {
 		t.Errorf("Expected JSON:\n%s\n\nActual JSON:\n%s", expectedJSON, actualJSON)
 	}
 }
-

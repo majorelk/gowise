@@ -3,8 +3,8 @@ package testoutput
 
 import (
 	"encoding/json"
-	"io"
 	"errors"
+	"io"
 )
 
 // TestOutput holds a unit of output from a test to a specific output stream
@@ -13,16 +13,23 @@ type TestOutput struct {
 	Stream   string `json:"stream"`
 	TestID   string `json:"testid,omitempty"`
 	TestName string `json:"testname,omitempty"`
+	Status   string `json:"status,omitempty"`
 }
 
 // NewTestOutput constructs a TestOutput with the given text, stream, test ID, and test name
-func NewTestOutput(text, stream, testID, testName string) TestOutput {
+func NewTestOutput(text, stream, testID, testName string, status string) TestOutput {
 	return TestOutput{
 		Text:     text,
 		Stream:   stream,
 		TestID:   testID,
 		TestName: testName,
+		Status:   status,
 	}
+}
+
+func (to *TestOutput) WithText(text string) *TestOutput {
+	to.Text = text
+	return to
 }
 
 // ToJSON converts the TestOutput object to a JSON string
@@ -40,4 +47,3 @@ func (to TestOutput) ToJSONWriter(writer io.Writer) error {
 	}
 	return nil
 }
-
