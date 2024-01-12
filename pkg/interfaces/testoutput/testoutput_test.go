@@ -10,7 +10,8 @@ var expectedJSON = `{
   "text": "Hello, World!",
   "stream": "stdout",
   "testid": "test123",
-  "testname": "ExampleTest"
+  "testname": "ExampleTest",
+  "status": "Passed"
 }`
 
 // TestToJSON Function
