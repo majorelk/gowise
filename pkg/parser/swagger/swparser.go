@@ -5,14 +5,26 @@ package swparser
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"strings"
 )
 
 // SwaggerInfoInterface is an interface for Swagger information.
 // It provides a method to get the Swagger version.
+// This interface is used to abstract the details of different Swagger versions.
 type SwaggerInfoInterface interface {
-	GetVersion() string
+	GetVersion() SwaggerVersion
 }
+
+type SwaggerVersion string
+
+const (
+	Swagger3_0 SwaggerVersion = "3.0"
+	Swagger2_0 SwaggerVersion = "2.0"
+	Swagger1_0 SwaggerVersion = "1.0"
+)
 
 // Operation represents a Swagger operation object.
 // An operation describes a single API operation on a path.
@@ -88,71 +100,115 @@ type SwaggerInfo3 struct {
 }
 
 // GetVersion returns the Swagger version of the SwaggerInfo.
-// The returned version should be "2.0" or "3.0".
-func (si SwaggerInfo) GetVersion() string {
-	return si.Version
+func (si SwaggerInfo) GetVersion() SwaggerVersion {
+	return SwaggerVersion(si.Version)
 }
 
 // GetVersion returns the Swagger version of the SwaggerInfo1.
-// The returned version should be "1.0".
-func (si1 SwaggerInfo1) GetVersion() string {
-	return si1.SwaggerVersion
+func (si1 SwaggerInfo1) GetVersion() SwaggerVersion {
+	return SwaggerVersion(si1.SwaggerVersion)
 }
 
 // GetVersion returns the Swagger version of the SwaggerInfo3.
-// The returned version should be "3.0".
-func (si3 SwaggerInfo3) GetVersion() string {
-	return si3.OpenAPI
+func (si3 SwaggerInfo3) GetVersion() SwaggerVersion {
+	return SwaggerVersion(si3.OpenAPI)
 }
 
-// ParseSwaggerFile parses a Swagger file located at filePath and returns a SwaggerInfoInterface representing the parsed information.
-// The Swagger file should be in JSON format and conform to the Swagger 1.0, 2.0, or 3.0 specification.
-// If the file cannot be read, or if the file content cannot be parsed as a Swagger document, an error is returned.
-// An error is also returned if the Swagger document is invalid (e.g., it is missing required fields) or if it uses an unsupported Swagger version.
+func unmarshalAndValidate(content []byte, target interface{}, validate func(interface{}) error) error {
+	if err := json.Unmarshal(content, target); err != nil {
+		return fmt.Errorf("unable to unmarshal content: %w", err)
+	}
+	if err := validate(target); err != nil {
+		return err
+	}
+	return nil
+}
+
 func ParseSwaggerFile(filePath string) (SwaggerInfoInterface, error) {
+	// Reject file paths that are not simple file names
+	if filePath != filepath.Base(filePath) {
+		return nil, fmt.Errorf("invalid Swagger file path: %s", filePath)
+	}
+
+	// Reject file paths that attempt to navigate directories
+	if strings.Contains(filePath, "..") || strings.Contains(filePath, "/") {
+		return nil, fmt.Errorf("invalid Swagger file path: %s", filePath)
+	}
+
 	content, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to read file %s: %w", filePath, err)
 	}
 
-	var swaggerInfo SwaggerInfo
-	if err := json.Unmarshal(content, &swaggerInfo); err != nil {
-		return nil, err
+	var genericMap map[string]interface{}
+	if err := json.Unmarshal(content, &genericMap); err != nil {
+		return nil, fmt.Errorf("unable to parse file %s: %w", filePath, err)
 	}
 
-	if swaggerInfo.Version == "" {
-		var swaggerInfo1 SwaggerInfo1
-		if err := json.Unmarshal(content, &swaggerInfo1); err != nil {
+	version, ok := genericMap["swagger"].(string)
+	if !ok {
+		version, ok = genericMap["openapi"].(string)
+		if !ok {
+			version, ok = genericMap["swaggerVersion"].(string)
+			if !ok {
+				return nil, errors.New("swagger version is missing")
+			}
+		}
+	}
+
+	switch version {
+	case "2.0":
+		var swaggerInfo SwaggerInfo
+		err := unmarshalAndValidate(content, &swaggerInfo, func(target interface{}) error {
+			swaggerInfo, ok := target.(*SwaggerInfo)
+			if !ok {
+				return errors.New("invalid target type")
+			}
+			if swaggerInfo.Info.Title == "" || swaggerInfo.Info.Version == "" || len(swaggerInfo.Paths) == 0 {
+				return errors.New("invalid Swagger 2.0 file format: Missing required fields")
+			}
+			return nil
+		})
+		if err != nil {
 			return nil, err
 		}
-		if swaggerInfo1.SwaggerVersion != "" {
+		return &swaggerInfo, nil
+
+	case "1.0":
+		var swaggerInfo1 SwaggerInfo1
+		err := unmarshalAndValidate(content, &swaggerInfo1, func(target interface{}) error {
+			swaggerInfo1, ok := target.(*SwaggerInfo1)
+			if !ok {
+				return errors.New("invalid target type")
+			}
 			if swaggerInfo1.ApiVersion == "" || swaggerInfo1.BasePath == "" || len(swaggerInfo1.Apis) == 0 {
-				return nil, errors.New("invalid Swagger 1.0 file format: Missing required fields")
+				return errors.New("invalid Swagger 1.0 file format: Missing required fields")
 			}
-			return &swaggerInfo1, nil
+			return nil
+		})
+		if err != nil {
+			return nil, err
 		}
+		return &swaggerInfo1, nil
 
+	case "3.0.0":
 		var swaggerInfo3 SwaggerInfo3
-		if err := json.Unmarshal(content, &swaggerInfo3); err == nil && swaggerInfo3.OpenAPI != "" {
+		err := unmarshalAndValidate(content, &swaggerInfo3, func(target interface{}) error {
+			swaggerInfo3, ok := target.(*SwaggerInfo3)
+			if !ok {
+				return errors.New("invalid target type")
+			}
 			if swaggerInfo3.Info.Title == "" || swaggerInfo3.Info.Version == "" || len(swaggerInfo3.Paths) == 0 {
-				return nil, errors.New("invalid Swagger 3.0 file format: Missing required fields")
+				return errors.New("invalid Swagger 3.0 file format: Missing required fields")
 			}
-			return &swaggerInfo3, nil
+			return nil
+		})
+		if err != nil {
+			return nil, err
 		}
+		return &swaggerInfo3, nil
 
-		return nil, errors.New("unsupported Swagger version")
-	} else {
-		switch swaggerInfo.Version {
-		case "2.0":
-			if swaggerInfo.Info.Title == "" {
-				return nil, errors.New("invalid Swagger file format: Title is required")
-			}
-			if swaggerInfo.Info.Version == "" || len(swaggerInfo.Paths) == 0 {
-				return nil, errors.New("invalid Swagger 2.0 file format: Missing required fields")
-			}
-			return &swaggerInfo, nil
-		default:
-			return nil, errors.New("unsupported Swagger version")
-		}
+	default:
+		return nil, fmt.Errorf("unsupported Swagger version: %s", version)
 	}
 }

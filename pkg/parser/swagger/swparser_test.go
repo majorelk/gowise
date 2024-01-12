@@ -3,6 +3,7 @@ package swparser
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -22,18 +23,18 @@ func TestParseSwaggerFile(t *testing.T) {
 		_, err := ParseSwaggerFile(tmpSwaggerFile)
 		assertError(t, err)
 
-		expectedErrorMessage := "invalid Swagger file format: Title is required"
+		expectedErrorMessage := "invalid Swagger 2.0 file format: Missing required fields"
 		assertEqual(t, err.Error(), expectedErrorMessage)
 	})
 
-	t.Run("Swagger 1.0 File", func(t *testing.T) {
+	t.Run("Unsupported_Swagger_Version", func(t *testing.T) {
 		tmpSwaggerFile := createTempFile(t, "swagger1.json", `{"swaggerVersion": "", "apiVersion": "1.0", "basePath": "/", "apis": [{"path": "/test", "description": "Test API"}]}`)
 		defer removeTempFile(t, tmpSwaggerFile)
 
 		_, err := ParseSwaggerFile(tmpSwaggerFile)
 		assertError(t, err)
 
-		expectedErrorMessage := "unsupported Swagger version"
+		expectedErrorMessage := "unsupported Swagger version: "
 		assertEqual(t, err.Error(), expectedErrorMessage)
 	})
 
@@ -89,23 +90,152 @@ func TestParseSwaggerFile(t *testing.T) {
 		_, err := ParseSwaggerFile(tmpSwaggerFile)
 		assertNoError(t, err)
 	})
+
+	t.Run("Empty File", func(t *testing.T) {
+		tmpSwaggerFile := createTempFile(t, "empty.json", ``)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertError(t, err)
+	})
+
+	t.Run("Valid JSON but Invalid Swagger File", func(t *testing.T) {
+		tmpSwaggerFile := createTempFile(t, "valid_json_invalid_swagger.json", `{"foo": "bar"}`)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertError(t, err)
+	})
+
+	t.Run("Valid Swagger 1.0 File", func(t *testing.T) {
+		swaggerContent := `{
+			"swaggerVersion": "1.0",
+			"apiVersion": "1.0.0",
+			"basePath": "http://example.com",
+			"apis": [{"path": "/test"}]
+		}`
+		tmpSwaggerFile := createTempFile(t, "valid_swagger_1_0.json", swaggerContent)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertNoError(t, err)
+	})
+
+	t.Run("Invalid Swagger Version", func(t *testing.T) {
+		swaggerContent := `{
+			"swagger": "4.0",
+			"info": {
+				"title": "Test API",
+				"version": "1.0.0"
+			},
+			"paths": {}
+		}`
+		tmpSwaggerFile := createTempFile(t, "invalid_swagger_version.json", swaggerContent)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertError(t, err)
+	})
+
+	t.Run("Missing Fields in Swagger 3.0.0 File", func(t *testing.T) {
+		swaggerContent := `{
+			"openapi": "3.0.0",
+			"info": {
+				"title": "Test API"
+			},
+			"paths": {}
+		}`
+		tmpSwaggerFile := createTempFile(t, "missing_fields_swagger_3_0_0.json", swaggerContent)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertError(t, err)
+	})
+
+	t.Run("Missing Fields in Swagger 1.0 File", func(t *testing.T) {
+		swaggerContent := `{
+			"swaggerVersion": "1.0",
+			"basePath": "http://example.com",
+			"apis": [{"path": "/test"}]
+		}`
+		tmpSwaggerFile := createTempFile(t, "missing_fields_swagger_1_0.json", swaggerContent)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertError(t, err)
+	})
+
+	t.Run("Invalid JSON in Swagger 3.0.0 File", func(t *testing.T) {
+		swaggerContent := `{
+			"openapi": "3.0.0",
+			"info": {
+				"title": "Test API",
+				"version": "1.0.0"
+			},
+			"paths": {}
+		`
+		tmpSwaggerFile := createTempFile(t, "invalid_json_swagger_3_0_0.json", swaggerContent)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertError(t, err)
+	})
+
+	t.Run("Invalid JSON in Swagger 1.0 File", func(t *testing.T) {
+		swaggerContent := `{
+			"swaggerVersion": "1.0",
+			"apiVersion": "1.0.0",
+			"basePath": "http://example.com",
+			"apis": [{"path": "/test"}]
+		`
+		tmpSwaggerFile := createTempFile(t, "invalid_json_swagger_1_0.json", swaggerContent)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertError(t, err)
+	})
+
+	t.Run("File Reading Error", func(t *testing.T) {
+		tmpSwaggerFile := "/path/to/non/existent/file.json"
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertError(t, err)
+	})
+
+	t.Run("Different Operations", func(t *testing.T) {
+		swaggerContent := `{
+			"swagger": "2.0",
+			"info": {
+				"title": "Test API",
+				"version": "1.0.0"
+			},
+			"paths": {
+				"/test": {
+					"get": {},
+					"post": {},
+					"put": {},
+					"delete": {}
+				}
+			}
+		}`
+		tmpSwaggerFile := createTempFile(t, "different_operations.json", swaggerContent)
+		defer removeTempFile(t, tmpSwaggerFile)
+
+		_, err := ParseSwaggerFile(tmpSwaggerFile)
+		assertNoError(t, err)
+	})
 }
 
 // Helper functions...
-
 func createTempFile(t *testing.T, fileName, content string) string {
-	tmpFile, err := ioutil.TempFile("", fileName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tmpFile.Close()
+	filePath := filepath.Join(".", fileName)
 
-	err = ioutil.WriteFile(tmpFile.Name(), []byte(content), 0644)
+	err := ioutil.WriteFile(filePath, []byte(content), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return tmpFile.Name()
+	return filePath
 }
 
 func removeTempFile(t *testing.T, filePath string) {
