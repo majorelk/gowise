@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 )
 
 // TestAttachment represents a file attached to a TestResult with an optional description.
@@ -13,18 +15,33 @@ type TestAttachment struct {
 
 	// Description is the user-specified description of the attachment. It may be empty.
 	Description string
+	FileType    string
+	FileSize    int64
+	CreatedAt   time.Time
 }
 
 // NewTestAttachment creates a TestAttachment to represent a file attached to a test result.
 func NewTestAttachment(filePath, description string) (TestAttachment, error) {
-	// Perform any validation or checks here
+	// Validate the file path
 	if err := validateFilePath(filePath); err != nil {
 		return TestAttachment{}, fmt.Errorf("error creating TestAttachment: %w", err)
 	}
 
+	// Get the file info
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		return TestAttachment{}, fmt.Errorf("error getting file info: %w", err)
+	}
+
+	// Determine the file type
+	fileType := filepath.Ext(filePath)
+
 	return TestAttachment{
 		FilePath:    filePath,
 		Description: description,
+		FileType:    fileType,
+		FileSize:    fileInfo.Size(),
+		CreatedAt:   fileInfo.ModTime(),
 	}, nil
 }
 
@@ -38,28 +55,27 @@ func validateFilePath(filePath string) error {
 	_, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("File does not exist at path: %s", filePath)
+			return fmt.Errorf("file does not exist at path: %s", filePath)
 		}
 		return err
 	}
 
 	// Check if the path points to a regular file
 	fileInfo, err := os.Stat(filePath)
-	if err!= nil {
+	if err != nil {
 		return err
 	}
 	if !fileInfo.Mode().IsRegular() {
-		return errors.New("Path does not point to a regular file")
+		return errors.New("path does not point to a regular file")
 	}
 
 	// Check if the program has permission to access the file.
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("Error opening file: %w", err)
+		return fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
 	return nil
 
 }
-
