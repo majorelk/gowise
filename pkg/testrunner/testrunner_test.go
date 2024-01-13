@@ -273,7 +273,6 @@ func TestGenerateReport(t *testing.T) {
 func TestGenerateReportWithFailedTests(t *testing.T) {
 	mockLogger := logging.NewMockLogger()
 	mockReporter := &MockReporter{}
-	tr := NewTestRunner(&TWrapper{t: t}, mockLogger, true, mockReporter)
 
 	// Run some tests with different outcomes
 	tests := []struct {
@@ -286,17 +285,15 @@ func TestGenerateReportWithFailedTests(t *testing.T) {
 	}
 	for _, test := range tests {
 		tWrapper := &TWrapper{t: t}
-		tr := NewTestRunner(tWrapper, mockLogger, true, mockReporter)
+		tr := NewTestRunner(tWrapper, mockLogger, true, mockReporter) // Create a new TestRunner instance here
 		tr.RunTest(test.name, func(assert *assertions.Assert) teststatus.TestStatus {
 			return test.status
 		})
 		if test.status == teststatus.Failed && !tWrapper.calledError && !tWrapper.calledFatal {
 			t.Errorf("Expected Errorf or Fatalf to be called for failed test, but they were not")
 		}
+		tr.GenerateReport() // Generate the report for each test
 	}
-
-	// Generate the report
-	tr.GenerateReport()
 
 	// Check if ReportTestOutput was called for each test
 	if !mockReporter.CalledReportTestOutput {
