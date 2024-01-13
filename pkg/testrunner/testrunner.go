@@ -60,41 +60,43 @@ func NewTestRunner(t TestInterface, logger logging.LoggerInterface, continueOnFa
 // If a test fails and continueOnFail is true, the method logs the failure and continues with the next test.
 // The method returns the result of the test.
 func (tr *TestRunner) RunTest(testName string, testFunc func(assert *assertions.Assert) teststatus.TestStatus) teststatus.TestStatus {
-	var result teststatus.TestStatus
+	var resultOutside teststatus.TestStatus
 
 	tr.t.Run(testName, func(t TestInterface) {
 		startTime := time.Now() // Get the current time
 
 		assert := assertions.New(t)
-		result = testFunc(assert)
+		resultInside := testFunc(assert) // Declare a new result variable here
 
 		endTime := time.Now()              // Get the current time
 		duration := endTime.Sub(startTime) // Calculate the duration of the test
 
-		resultString := result.GetResult()
+		resultString := resultInside.GetResult()
 		testID := uuid.New().String() // Generate a unique ID for the test
 
 		if resultString != teststatus.Passed.GetResult() {
 			tr.logger.LogError(fmt.Errorf("test %s failed", testName))
 			if tr.continueOnFail {
-				t.Errorf("Test %s failed", testName)
+				t.Errorf("Test %s failed", testName) // Call Errorf here
 			} else {
-				t.Fatalf("Test %s failed", testName)
+				t.Fatalf("Test %s failed", testName) // Call Fatalf here
 			}
 		} else {
 			tr.logger.LogInfo(fmt.Sprintf("Test %s passed", testName))
 		}
 
 		// Report the test output
-		output := testoutput.NewTestOutput(duration.String(), result.GetResult(), testID, testName, resultString)
+		output := testoutput.NewTestOutput(duration.String(), resultInside.GetResult(), testID, testName, resultString)
 		if err := tr.reporter.ReportTestOutput(output); err != nil {
 			tr.logger.LogError(fmt.Errorf("failed to report test output: %v", err))
 		}
+
+		resultOutside = resultInside // Assign the result from inside the goroutine to the outside variable
 	})
 
-	tr.results = append(tr.results, result)
+	tr.results = append(tr.results, resultOutside)
 
-	return result
+	return resultOutside
 }
 
 // GenerateReport generates a test report.
