@@ -16,16 +16,20 @@ import (
 
 // TWrapper is a wrapper for *testing.T that implements the TestInterface.
 type TWrapper struct {
-	t *testing.T
+	t           *testing.T
+	calledError bool
+	calledFatal bool
 }
 
 // Errorf is a wrapper for the Errorf method in *testing.T.
 func (tw *TWrapper) Errorf(format string, args ...interface{}) {
+	tw.calledError = true
 	tw.t.Errorf(format, args...)
 }
 
 // Fatalf is a wrapper for the Fatalf method in *testing.T.
 func (tw *TWrapper) Fatalf(format string, args ...interface{}) {
+	tw.calledFatal = true
 	tw.t.Fatalf(format, args...)
 }
 
@@ -281,9 +285,14 @@ func TestGenerateReportWithFailedTests(t *testing.T) {
 		{"Test3", teststatus.Passed},
 	}
 	for _, test := range tests {
+		tWrapper := &TWrapper{t: t}
+		tr := NewTestRunner(tWrapper, mockLogger, true, mockReporter)
 		tr.RunTest(test.name, func(assert *assertions.Assert) teststatus.TestStatus {
 			return test.status
 		})
+		if test.status == teststatus.Failed && !tWrapper.calledError && !tWrapper.calledFatal {
+			t.Errorf("Expected Errorf or Fatalf to be called for failed test, but they were not")
+		}
 	}
 
 	// Generate the report
