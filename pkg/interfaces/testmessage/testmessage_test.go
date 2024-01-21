@@ -45,4 +45,3 @@ func TestToString(t *testing.T) {
 		t.Errorf("Expected string: %s\nActual string: %s", expectedString, actualString)
 	}
 }
-
