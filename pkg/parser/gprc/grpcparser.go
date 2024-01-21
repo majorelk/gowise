@@ -34,14 +34,25 @@ const (
 	ErrInvalidParamFormat   = "invalid parameter format: expected 'key=value'"
 )
 
-// GRPCInfo contains information about a gRPC message.
+// GRPCInfo represents a parsed gRPC message. It contains the name of the gRPC service,
+// the name of the method being called, and any parameters included in the message.
+// This struct is used to provide a structured representation of a gRPC message, which
+// can be useful for inspecting the message or passing it to other functions.
+
 type GRPCInfo struct {
 	ServiceName string
 	MethodName  string
 	Params      url.Values
 }
 
-// ParseGRPCMessage parses a gRPC message and returns relevant information.
+// ParseGRPCMessage takes a gRPC message string and returns a GRPCInfo struct containing
+// the parsed information. The input message is expected to be in the format "Service/Method",
+// with an optional "?param1=value1&param2=value2" at the end for parameters. The function
+// splits the input message on the "/" character to separate the service name from the rest
+// of the message, then splits the remainder of the message on the "?" character to separate
+// the method name from the parameters. If parameters are present, they are parsed using the
+// url.ParseQuery function from the net/url package. If the input message is not in the
+// expected format, ParseGRPCMessage will return an error.
 func ParseGRPCMessage(message string) (*GRPCInfo, error) {
 	parts := strings.Split(message, "/")
 
