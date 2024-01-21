@@ -74,7 +74,7 @@ func (tr *TestRunner) RunTest(testName string, testFunc func(assert *assertions.
 		resultString := resultInside.GetResult()
 		testID := uuid.New().String() // Generate a unique ID for the test
 
-		if resultString != teststatus.Passed.GetResult() {
+		if resultInside != teststatus.Passed {
 			tr.logger.LogError(fmt.Errorf("test %s failed", testName))
 			if tr.continueOnFail {
 				t.Errorf("Test %s failed", testName) // Call Errorf here
