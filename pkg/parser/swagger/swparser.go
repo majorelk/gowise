@@ -1,65 +1,227 @@
-// Package SWParser provides functionality for working with Swagger/OpenAPI files
+// Package swparser provides functionality to parse and validate Swagger files.
+// It supports Swagger versions 1.0, 2.0, and 3.0.
 package swparser
 
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
 )
 
-// SwaggerInfo represents the relevant information from a Swagger file.
+// SwaggerInfoInterface is an interface that defines the methods required for accessing
+// Swagger document information. It provides a method to get the Swagger version.
+// This interface is used to abstract the details of different Swagger versions, allowing
+// the same code to work with Swagger 1.0, 2.0, and 3.0 documents.
+type SwaggerInfoInterface interface {
+	GetVersion() SwaggerVersion
+}
+
+type SwaggerVersion string
+
+const (
+	Swagger3_0 SwaggerVersion = "3.0"
+	Swagger2_0 SwaggerVersion = "2.0"
+	Swagger1_0 SwaggerVersion = "1.0"
+)
+
+// Operation represents a Swagger operation object.
+// An operation describes a single API operation on a path.
+// Summary is a short summary of the operation.
+// Description is a verbose explanation of the operation.
+type Operation struct {
+	Summary     string `json:"summary"`
+	Description string `json:"description"`
+}
+
+// SwaggerInfo represents a Swagger 2.0 document. It contains fields for the Swagger version,
+// API information, and paths to the API endpoints. This struct is used when parsing Swagger 2.0
+// documents to provide a structured representation of the document.
 type SwaggerInfo struct {
-	Version string    `json:"swagger"`
-	Info    InfoField `json:"info"`
+	Version string `json:"swagger"` // The Swagger version
+	Info    struct {
+		Title   string `json:"title"`
+		Version string `json:"version"`
+	} `json:"info"`
+	Paths map[string]struct {
+		Get     *Operation `json:"get"`
+		Put     *Operation `json:"put"`
+		Post    *Operation `json:"post"`
+		Delete  *Operation `json:"delete"`
+		Options *Operation `json:"options"`
+		Head    *Operation `json:"head"`
+		Patch   *Operation `json:"patch"`
+		Trace   *Operation `json:"trace"`
+	} `json:"paths"`
 }
 
-type InfoField struct {
-	Version string `json:"version"`
-	Title   string `json:"title"`
+// Info represents the information section of a Swagger document.
+type Info struct {
+	Title             string `json:"title"`
+	Description       string `json:"description"`
+	TermsOfServiceUrl string `json:"termsOfServiceUrl"`
+	Contact           string `json:"contact"`
+	License           string `json:"license"`
+	LicenseUrl        string `json:"licenseUrl"`
 }
 
+// SwaggerInfo1 represents a Swagger 1.0 document. It contains fields for the Swagger version,
+// API version, base path, APIs, and API information. This struct is used when parsing Swagger 1.0
+// documents to provide a structured representation of the document.
+type SwaggerInfo1 struct {
+	SwaggerVersion string `json:"swaggerVersion"`
+	ApiVersion     string `json:"apiVersion"`
+	BasePath       string `json:"basePath"`
+	Apis           []struct {
+		Path        string `json:"path"`
+		Description string `json:"description"`
+	} `json:"apis"`
+	Info `json:"info"`
+}
 
-// ParseSwaggerFile parses a Swagger/ OpenAPI file
-//
-// It reads the content of the specified file and unmarshals it into a SwaggerInfo struct.
-// The function then validates the Swagger version and the required fields.
-//
-// If the swagger version is "1.0," additional methods for handling version 1.0 can be implemented. (WIP)
-// For versions "2.0" and "3.0", the function checks if the Title field is not empty.
-// Additional validation methods for these versions can be added as needed.
-//
-// The function returns a pointer to a SwaggerInfo struct and an error if there are any issues with parsing or validation.
-func ParseSwaggerFile(filePath string) (*SwaggerInfo, error) {
+// SwaggerInfo3 represents a Swagger 3.0 document. It contains fields for the OpenAPI version,
+// API information, servers, paths, components, security requirements, and tags. This struct is
+// used when parsing Swagger 3.0 documents to provide a structured representation of the document.
+type SwaggerInfo3 struct {
+	OpenAPI string `json:"openapi"` // The OpenAPI version
+	Info    struct {
+		Title       string `json:"title"`       // The title of the API
+		Description string `json:"description"` // A short description of the API
+		Version     string `json:"version"`     // The version of the API
+	} `json:"info"`
+	Servers []struct {
+		URL string `json:"url"` // The URL of the servers where the API is available
+	} `json:"servers"`
+	Paths      map[string]interface{} `json:"paths"`      // The available paths and operations for the API
+	Components map[string]interface{} `json:"components"` // The available components for the API
+	Security   []map[string][]string  `json:"security"`   // The security requirements for the API
+	Tags       []struct {
+		Name string `json:"name"` // The available tags for the API
+	} `json:"tags"`
+}
+
+// GetVersion returns the Swagger version of the SwaggerInfo. This method is used to abstract
+// the details of accessing the Swagger version, allowing the same code to work with different
+// Swagger document versions.
+func (si SwaggerInfo) GetVersion() SwaggerVersion {
+	return SwaggerVersion(si.Version)
+}
+
+// GetVersion returns the Swagger version of the SwaggerInfo1.
+func (si1 SwaggerInfo1) GetVersion() SwaggerVersion {
+	return SwaggerVersion(si1.SwaggerVersion)
+}
+
+// GetVersion returns the Swagger version of the SwaggerInfo3.
+func (si3 SwaggerInfo3) GetVersion() SwaggerVersion {
+	return SwaggerVersion(si3.OpenAPI)
+}
+
+// unmarshalAndValidate unmarshals the given content into the given target and validates it
+// using the given validate function. If the content cannot be unmarshaled or the validate
+// function returns an error, unmarshalAndValidate returns an error. This function is used
+// to reduce code duplication in the parsing of Swagger documents.
+func unmarshalAndValidate(content []byte, target interface{}, validate func(interface{}) error) error {
+	if err := json.Unmarshal(content, target); err != nil {
+		return fmt.Errorf("unable to unmarshal content: %w", err)
+	}
+	if err := validate(target); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ParseSwaggerFile parses the Swagger file at the given file path and returns a SwaggerInfoInterface
+// representing the parsed document. If the file path is invalid, the file cannot be read, the file
+// cannot be parsed, or the Swagger version is unsupported, ParseSwaggerFile returns an error. This
+// function is the main entry point for parsing Swagger documents.
+func ParseSwaggerFile(filePath string) (SwaggerInfoInterface, error) {
+	// Reject file paths that are not simple file names
+	if filePath != filepath.Base(filePath) {
+		return nil, fmt.Errorf("invalid Swagger file path: %s", filePath)
+	}
+
+	// Reject file paths that attempt to navigate directories
+	if strings.Contains(filePath, "..") || strings.Contains(filePath, "/") {
+		return nil, fmt.Errorf("invalid Swagger file path: %s", filePath)
+	}
+
 	content, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to read file %s: %w", filePath, err)
 	}
 
-	// Unmarshal the JSON content into the SwaggerInfo struct
-	var swaggerInfo SwaggerInfo
-	if err := json.Unmarshal(content, &swaggerInfo); err != nil {
-		return nil, err
+	var genericMap map[string]interface{}
+	if err := json.Unmarshal(content, &genericMap); err != nil {
+		return nil, fmt.Errorf("unable to parse file %s: %w", filePath, err)
 	}
 
-	fmt.Printf("Parsed SwaggerInfo: %v\n", swaggerInfo)
-
-	// Validate that the required fields are present
-	if swaggerInfo.Version == "1.0" {
-		// Need methods to handle version 1.0 if needed
-	} else {
-		switch swaggerInfo.Version {
-		case "2.0", "3.0":
-			if swaggerInfo.Info.Title =="" {
-				fmt.Println("Title is empty")
-				return nil, errors.New("Invalid Swagger file format: Title is required")
+	version, ok := genericMap["swagger"].(string)
+	if !ok {
+		version, ok = genericMap["openapi"].(string)
+		if !ok {
+			version, ok = genericMap["swaggerVersion"].(string)
+			if !ok {
+				return nil, errors.New("swagger version is missing")
 			}
-		// Need more validation methods for versions 2.0 and 3.0
-		default: 
-			return nil, errors.New("Unsupported Swagger version")
 		}
 	}
 
-	return &swaggerInfo, nil
-}
+	switch version {
+	case "2.0":
+		var swaggerInfo SwaggerInfo
+		err := unmarshalAndValidate(content, &swaggerInfo, func(target interface{}) error {
+			swaggerInfo, ok := target.(*SwaggerInfo)
+			if !ok {
+				return errors.New("invalid target type")
+			}
+			if swaggerInfo.Info.Title == "" || swaggerInfo.Info.Version == "" || len(swaggerInfo.Paths) == 0 {
+				return errors.New("invalid Swagger 2.0 file format: Missing required fields")
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &swaggerInfo, nil
 
+	case "1.0":
+		var swaggerInfo1 SwaggerInfo1
+		err := unmarshalAndValidate(content, &swaggerInfo1, func(target interface{}) error {
+			swaggerInfo1, ok := target.(*SwaggerInfo1)
+			if !ok {
+				return errors.New("invalid target type")
+			}
+			if swaggerInfo1.ApiVersion == "" || swaggerInfo1.BasePath == "" || len(swaggerInfo1.Apis) == 0 {
+				return errors.New("invalid Swagger 1.0 file format: Missing required fields")
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &swaggerInfo1, nil
+
+	case "3.0.0":
+		var swaggerInfo3 SwaggerInfo3
+		err := unmarshalAndValidate(content, &swaggerInfo3, func(target interface{}) error {
+			swaggerInfo3, ok := target.(*SwaggerInfo3)
+			if !ok {
+				return errors.New("invalid target type")
+			}
+			if swaggerInfo3.Info.Title == "" || swaggerInfo3.Info.Version == "" || len(swaggerInfo3.Paths) == 0 {
+				return errors.New("invalid Swagger 3.0 file format: Missing required fields")
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &swaggerInfo3, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported Swagger version: %s", version)
+	}
+}

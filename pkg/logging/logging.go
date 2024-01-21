@@ -19,18 +19,24 @@ const (
 )
 
 // LoggerInterface is an interface that defines the methods required for logging.
+// It allows for different implementations of logging, such as a standard logger
+// that logs to an output stream, or a mock logger for testing.
 type LoggerInterface interface {
 	LogInfo(message string)
 	LogError(err error)
 }
 
-// Logger is a type that provides logging functionality.
+// Logger is a struct that provides logging functionality to an output stream.
+// It contains a log.Logger and a log level, which determines the severity of
+// messages that will be logged.
 type Logger struct {
 	logger   *log.Logger
 	logLevel LogLevel
 }
 
-// NewLogger creates a new logger instance with the specified log level.
+// NewLogger creates a new Logger instance with the specified log level.
+// The Logger will log messages of a severity equal to or greater than the
+// specified log level to os.Stdout.
 func NewLogger(logLevel LogLevel) *Logger {
 	return &Logger{
 		logger:   log.New(os.Stdout, "GoWise ", log.Ldate|log.Ltime),
@@ -38,7 +44,8 @@ func NewLogger(logLevel LogLevel) *Logger {
 	}
 }
 
-// LogInfo logs an informational message.
+// LogInfo logs an informational message if the log level is INFO or lower.
+// The message is prefixed with "INFO: ".
 func (l *Logger) LogInfo(message string) {
 	if l.logLevel <= INFO {
 		l.logger.Printf("INFO: %s\n", message)
@@ -52,13 +59,17 @@ func (l *Logger) LogError(err error) {
 	}
 }
 
-// MockLogger is a type that provides mock logging functionality for testing.
+// MockLogger is a struct that provides mock logging functionality for testing.
+// It records informational and error messages in separate slices instead of
+// logging them to an output stream.
 type MockLogger struct {
 	InfoMessages  []string
 	ErrorMessages []string
 }
 
-// NewMockLogger creates a new mock logger instance.
+// NewMockLogger creates a new MockLogger instance.
+// The MockLogger records messages instead of logging them, which can be useful
+// for verifying that the correct messages were logged during testing.
 func NewMockLogger() *MockLogger {
 	return &MockLogger{
 		InfoMessages:  make([]string, 0),
@@ -66,7 +77,7 @@ func NewMockLogger() *MockLogger {
 	}
 }
 
-// LogInfo logs an informational message to the mock logger.
+// LogInfo records an informational message in the InfoMessages slice.
 func (m *MockLogger) LogInfo(message string) {
 	m.InfoMessages = append(m.InfoMessages, message)
 }

@@ -17,13 +17,21 @@ import (
 )
 
 // TestInterface is an interface that includes the methods needed for running tests.
+// Errorf is used to indicate a non-fatal error that allows the test to continue.
+// Fatalf is used to indicate a fatal error that stops the test immediately.
+// Run executes a subtest with the given name and function.
 type TestInterface interface {
 	Errorf(format string, args ...interface{})
 	Fatalf(format string, args ...interface{})
 	Run(name string, f func(t TestInterface)) bool
 }
 
-/// TestRunner represents a basic test runner component.
+// TestRunner represents a basic test runner component.
+// t is the interface for running tests.
+// logger is used for logging test results.
+// continueOnFail determines whether the TestRunner should continue executing the remaining tests if a test fails.
+// results stores the results of all executed tests.
+// reporter is used for reporting test results.
 type TestRunner struct {
 	t              TestInterface
 	logger         logging.LoggerInterface
@@ -45,50 +53,54 @@ func NewTestRunner(t TestInterface, logger logging.LoggerInterface, continueOnFa
 }
 
 // RunTest executes a test with the specified test name and test function.
-// The test function is a function that takes an assertions.Assert and returns a teststatus.TestStatus.
-// RunTest logs a message indicating whether the test passed or failed.
-// If a test fails and continueOnFail is false, RunTest stops the test immediately.
-// If a test fails and continueOnFail is true, RunTest logs the failure and continues with the next test.
-// It returns the test result.
+// testName is the name of the test.
+// testFunc is a function that takes an assertions.Assert and returns a teststatus.TestStatus. It contains the logic of the test.
+// The method logs a message indicating whether the test passed or failed.
+// If a test fails and continueOnFail is false, the method stops the test immediately.
+// If a test fails and continueOnFail is true, the method logs the failure and continues with the next test.
+// The method returns the result of the test.
 func (tr *TestRunner) RunTest(testName string, testFunc func(assert *assertions.Assert) teststatus.TestStatus) teststatus.TestStatus {
-	var result teststatus.TestStatus
+	var resultOutside teststatus.TestStatus
 
 	tr.t.Run(testName, func(t TestInterface) {
 		startTime := time.Now() // Get the current time
 
 		assert := assertions.New(t)
-		result = testFunc(assert)
+		resultInside := testFunc(assert) // Declare a new result variable here
 
 		endTime := time.Now()              // Get the current time
 		duration := endTime.Sub(startTime) // Calculate the duration of the test
 
-		resultString := result.GetResult()
+		resultString := resultInside.GetResult()
 		testID := uuid.New().String() // Generate a unique ID for the test
 
-		if resultString != teststatus.Passed.GetResult() {
+		if resultInside != teststatus.Passed {
 			tr.logger.LogError(fmt.Errorf("test %s failed", testName))
 			if tr.continueOnFail {
-				t.Errorf("Test %s failed", testName)
+				t.Errorf("Test %s failed", testName) // Call Errorf here
 			} else {
-				t.Fatalf("Test %s failed", testName)
+				t.Fatalf("Test %s failed", testName) // Call Fatalf here
 			}
 		} else {
 			tr.logger.LogInfo(fmt.Sprintf("Test %s passed", testName))
 		}
 
 		// Report the test output
-		output := testoutput.NewTestOutput(duration.String(), result.GetResult(), testID, testName, resultString)
+		output := testoutput.NewTestOutput(duration.String(), resultInside.GetResult(), testID, testName, resultString)
 		if err := tr.reporter.ReportTestOutput(output); err != nil {
 			tr.logger.LogError(fmt.Errorf("failed to report test output: %v", err))
 		}
+
+		resultOutside = resultInside // Assign the result from inside the goroutine to the outside variable
 	})
 
-	tr.results = append(tr.results, result)
+	tr.results = append(tr.results, resultOutside)
 
-	return result
+	return resultOutside
 }
 
 // GenerateReport generates a test report.
+// The report contains the results of all executed tests.
 func (tr *TestRunner) GenerateReport() *reporter.TestReport { // Fix the undeclared name error by using the imported package
 	report := reporter.NewTestReport() // Use the imported package to create a new TestReport
 

@@ -1,9 +1,10 @@
 package testattachment
 
 import (
-	"testing"
-	"os"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
 )
 
 func TestNewTestAttachment(t *testing.T) {
@@ -13,7 +14,8 @@ func TestNewTestAttachment(t *testing.T) {
 	}
 	defer os.Remove(tempFile.Name())
 
-	attachment, err := NewTestAttachment(tempFile.Name(), "This is a test attachment.")
+	description := "This is a test attachment."
+	attachment, err := NewTestAttachment(tempFile.Name(), description)
 
 	if err != nil {
 		t.Errorf("Error creating TestAttachment: %v", err)
@@ -24,9 +26,20 @@ func TestNewTestAttachment(t *testing.T) {
 		t.Errorf("Expected FilePath to be %s, but got %s", tempFile.Name(), attachment.FilePath)
 	}
 
-	if attachment.Description != "This is a test attachment." {
-		t.Errorf("Expected Description to be 'This is a test attachment.', but got %s", attachment.Description)
+	if attachment.Description != description {
+		t.Errorf("Expected Description to be '%s', but got %s", description, attachment.Description)
+	}
+
+	if attachment.FileType != filepath.Ext(tempFile.Name()) {
+		t.Errorf("Expected FileType to be %s, but got %s", filepath.Ext(tempFile.Name()), attachment.FileType)
+	}
+
+	fileInfo, _ := os.Stat(tempFile.Name())
+	if attachment.FileSize != fileInfo.Size() {
+		t.Errorf("Expected FileSize to be %d, but got %d", fileInfo.Size(), attachment.FileSize)
+	}
+
+	if attachment.CreatedAt != fileInfo.ModTime() {
+		t.Errorf("Expected CreatedAt to be %v, but got %v", fileInfo.ModTime(), attachment.CreatedAt)
 	}
 }
-
-
