@@ -11,9 +11,10 @@ import (
 	"strings"
 )
 
-// SwaggerInfoInterface is an interface for Swagger information.
-// It provides a method to get the Swagger version.
-// This interface is used to abstract the details of different Swagger versions.
+// SwaggerInfoInterface is an interface that defines the methods required for accessing
+// Swagger document information. It provides a method to get the Swagger version.
+// This interface is used to abstract the details of different Swagger versions, allowing
+// the same code to work with Swagger 1.0, 2.0, and 3.0 documents.
 type SwaggerInfoInterface interface {
 	GetVersion() SwaggerVersion
 }
@@ -35,10 +36,9 @@ type Operation struct {
 	Description string `json:"description"`
 }
 
-// SwaggerInfo represents a Swagger 2.0 or 3.0 document.
-// Version is the Swagger version (should be "2.0" or "3.0").
-// Info provides metadata about the API. The metadata can be used by the clients if needed.
-// Paths holds the relative paths to the individual endpoints. The path is appended to the URL from the Server Object in order to construct the full URL.
+// SwaggerInfo represents a Swagger 2.0 document. It contains fields for the Swagger version,
+// API information, and paths to the API endpoints. This struct is used when parsing Swagger 2.0
+// documents to provide a structured representation of the document.
 type SwaggerInfo struct {
 	Version string `json:"swagger"` // The Swagger version
 	Info    struct {
@@ -67,7 +67,9 @@ type Info struct {
 	LicenseUrl        string `json:"licenseUrl"`
 }
 
-// SwaggerInfo1 represents a Swagger 1.0 document.
+// SwaggerInfo1 represents a Swagger 1.0 document. It contains fields for the Swagger version,
+// API version, base path, APIs, and API information. This struct is used when parsing Swagger 1.0
+// documents to provide a structured representation of the document.
 type SwaggerInfo1 struct {
 	SwaggerVersion string `json:"swaggerVersion"`
 	ApiVersion     string `json:"apiVersion"`
@@ -79,8 +81,9 @@ type SwaggerInfo1 struct {
 	Info `json:"info"`
 }
 
-// SwaggerInfo3 represents a Swagger 3.0 document.
-// It includes fields for the OpenAPI version, API information, servers, paths, components, security requirements, and tags.
+// SwaggerInfo3 represents a Swagger 3.0 document. It contains fields for the OpenAPI version,
+// API information, servers, paths, components, security requirements, and tags. This struct is
+// used when parsing Swagger 3.0 documents to provide a structured representation of the document.
 type SwaggerInfo3 struct {
 	OpenAPI string `json:"openapi"` // The OpenAPI version
 	Info    struct {
@@ -99,7 +102,9 @@ type SwaggerInfo3 struct {
 	} `json:"tags"`
 }
 
-// GetVersion returns the Swagger version of the SwaggerInfo.
+// GetVersion returns the Swagger version of the SwaggerInfo. This method is used to abstract
+// the details of accessing the Swagger version, allowing the same code to work with different
+// Swagger document versions.
 func (si SwaggerInfo) GetVersion() SwaggerVersion {
 	return SwaggerVersion(si.Version)
 }
@@ -114,6 +119,10 @@ func (si3 SwaggerInfo3) GetVersion() SwaggerVersion {
 	return SwaggerVersion(si3.OpenAPI)
 }
 
+// unmarshalAndValidate unmarshals the given content into the given target and validates it
+// using the given validate function. If the content cannot be unmarshaled or the validate
+// function returns an error, unmarshalAndValidate returns an error. This function is used
+// to reduce code duplication in the parsing of Swagger documents.
 func unmarshalAndValidate(content []byte, target interface{}, validate func(interface{}) error) error {
 	if err := json.Unmarshal(content, target); err != nil {
 		return fmt.Errorf("unable to unmarshal content: %w", err)
@@ -124,6 +133,10 @@ func unmarshalAndValidate(content []byte, target interface{}, validate func(inte
 	return nil
 }
 
+// ParseSwaggerFile parses the Swagger file at the given file path and returns a SwaggerInfoInterface
+// representing the parsed document. If the file path is invalid, the file cannot be read, the file
+// cannot be parsed, or the Swagger version is unsupported, ParseSwaggerFile returns an error. This
+// function is the main entry point for parsing Swagger documents.
 func ParseSwaggerFile(filePath string) (SwaggerInfoInterface, error) {
 	// Reject file paths that are not simple file names
 	if filePath != filepath.Base(filePath) {
