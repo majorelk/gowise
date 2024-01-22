@@ -15,6 +15,27 @@ jobs:
         with:
           go-version: 1.18.1
 
+      - name: Check if tests exist
+        id: check-tests
+        run: |
+          if find . -name "*_test.go" | grep -q .; then
+            echo "::set-output name=tests_exist::true"
+          else
+            echo "::set-output name=tests_exist::false"
+          fi
+
       - name: Run tests
+        if: steps.check-tests.outputs.tests_exist == 'true'
         run: go test ./...
 
+      - name: Merge PR
+        if: github.event_name == 'pull_request' && steps.check-tests.outputs.tests_exist == 'true'
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            })
