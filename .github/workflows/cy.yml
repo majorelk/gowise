@@ -1,6 +1,6 @@
 name: CI
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   build:
@@ -28,14 +28,12 @@ jobs:
         if: steps.check-tests.outputs.tests_exist == 'true'
         run: go test ./...
 
-      - name: Merge PR
-        if: github.event_name == 'pull_request' && steps.check-tests.outputs.tests_exist == 'true'
-        uses: actions/github-script@v3
+      - name: Create PR
+        if: steps.check-tests.outputs.tests_exist == 'true' && success()
+        uses: repo-sync/pull-request@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            })
+          source_branch: "${{ github.ref }}"
+          destination_branch: "main"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_title: "Automated PR: All tests passed"
+          pr_body: "This is an automated Pull Request. All tests passed, so it's ready for review."
