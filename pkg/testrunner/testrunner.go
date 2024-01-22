@@ -76,10 +76,14 @@ func (tr *TestRunner) RunTest(testName string, testFunc func(assert *assertions.
 
 		if resultInside != teststatus.Passed {
 			tr.logger.LogError(fmt.Errorf("test %s failed", testName))
+			var err error
 			if tr.continueOnFail {
-				t.Errorf("Test %s failed", testName) // Call Errorf here
+				t.Errorf("Test %s failed", testName)
 			} else {
-				t.Fatalf("Test %s failed", testName) // Call Fatalf here
+				t.Fatalf("Test %s failed", testName)
+			}
+			if err != nil {
+				tr.logger.LogError(fmt.Errorf("failed to log error: %v", err))
 			}
 		} else {
 			tr.logger.LogInfo(fmt.Sprintf("Test %s passed", testName))

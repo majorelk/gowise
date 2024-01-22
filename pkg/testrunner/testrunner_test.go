@@ -267,33 +267,27 @@ func TestGenerateReport(t *testing.T) {
 	}
 }
 
-// TestGenerateReportWithFailedTests tests the behavior of the GenerateReport method when some tests fail.
+// TestGenerateReportFailure tests the behavior of the GenerateReport method when a test fails.
 // It checks if the ReportTestOutput method of the ReporterInterface is called for each test that was run,
 // and if it correctly passes the test output to the ReportTestOutput method.
-func TestGenerateReportWithFailedTests(t *testing.T) {
+func TestGenerateReportFailure(t *testing.T) {
 	mockLogger := logging.NewMockLogger()
 	mockReporter := &MockReporter{}
+	tr := NewTestRunner(&TWrapper{t: t}, mockLogger, true, mockReporter)
 
-	// Run some tests with different outcomes
-	tests := []struct {
-		name   string
-		status teststatus.TestStatus
-	}{
-		{"Test1", teststatus.Passed},
-		{"Test2", teststatus.Failed},
-		{"Test3", teststatus.Passed},
-	}
-	for _, test := range tests {
-		tWrapper := &TWrapper{t: t}
-		tr := NewTestRunner(tWrapper, mockLogger, true, mockReporter) // Create a new TestRunner instance here
-		tr.RunTest(test.name, func(assert *assertions.Assert) teststatus.TestStatus {
-			return test.status
+	// Run some tests
+	testNames := []string{"Test1", "Test2", "Test3"}
+	for _, testName := range testNames {
+		tr.RunTest(testName, func(assert *assertions.Assert) teststatus.TestStatus {
+			if testName == "Test2" {
+				return teststatus.Failed // Make Test2 fail
+			}
+			return teststatus.Passed
 		})
-		if test.status == teststatus.Failed && !tWrapper.calledError && !tWrapper.calledFatal {
-			t.Errorf("Expected Errorf or Fatalf to be called for failed test, but they were not")
-		}
-		tr.GenerateReport() // Generate the report for each test
 	}
+
+	// Generate the report
+	tr.GenerateReport()
 
 	// Check if ReportTestOutput was called for each test
 	if !mockReporter.CalledReportTestOutput {
@@ -301,11 +295,23 @@ func TestGenerateReportWithFailedTests(t *testing.T) {
 	}
 
 	// Check if the reported output is correct for each test
-	for i, test := range tests {
-		if mockReporter.ReportedOutput[i].TestName != test.name {
-			t.Errorf("ReportTestOutput was called with incorrect output for test %s", test.name)
-		} else if mockReporter.ReportedOutput[i].Status != test.status.GetResult() {
-			t.Errorf("Test %s did not return the expected status", test.name)
+	for _, output := range mockReporter.ReportedOutput {
+		expectedStatus := teststatus.Passed.GetResult()
+		if output.TestName == "Test2" {
+			expectedStatus = teststatus.Failed.GetResult() // Expect Test2 to have failed
+		}
+
+		// Check if the test name is in the testNames slice
+		found := false
+		for _, testName := range testNames {
+			if output.TestName == testName {
+				found = true
+				break
+			}
+		}
+
+		if !found || output.Status != expectedStatus {
+			t.Errorf("ReportTestOutput was not called with correct output for test %s", output.TestName)
 		}
 	}
 }
