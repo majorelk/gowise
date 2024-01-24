@@ -69,6 +69,24 @@ func (m *MockT) Run(name string, f func(t *MockT)) bool {
 	return true
 }
 
+// MockReporter is a mock implementation of the ReporterInterface.
+// It's used for testing the behavior of the TestRunner.
+type MockReporter struct {
+	CalledReportTestOutput bool
+	ReportedOutput         []testoutput.TestOutput
+	Error                  error
+}
+
+// ReportTestAttachment implements reporter.ReporterInterface.
+func (*MockReporter) ReportTestAttachment(ta testattachment.TestAttachment) error {
+	panic("unimplemented")
+}
+
+// ReportTestMessage implements reporter.ReporterInterface.
+func (*MockReporter) ReportTestMessage(tm testmessage.TestMessage) error {
+	panic("unimplemented")
+}
+
 // Errorf is a mock implementation of the Errorf method in the TestRunnerInterface.
 // It adds the formatted error message to the Errors slice and sets CalledErrorf to true.
 func (m *MockT) Errorf(format string, args ...interface{}) {
@@ -172,24 +190,6 @@ func TestFatalfOnFail(t *testing.T) {
 	if len(mockT.Errors) != 0 {
 		t.Errorf("Expected Errors to be empty, but it was not")
 	}
-}
-
-// MockReporter is a mock implementation of the ReporterInterface.
-// It's used for testing the behavior of the TestRunner.
-type MockReporter struct {
-	CalledReportTestOutput bool
-	ReportedOutput         []testoutput.TestOutput
-	Error                  error
-}
-
-// ReportTestAttachment implements reporter.ReporterInterface.
-func (*MockReporter) ReportTestAttachment(ta testattachment.TestAttachment) error {
-	panic("unimplemented")
-}
-
-// ReportTestMessage implements reporter.ReporterInterface.
-func (*MockReporter) ReportTestMessage(tm testmessage.TestMessage) error {
-	panic("unimplemented")
 }
 
 // ReportTestOutput is a mock implementation of the ReportTestOutput method in the ReporterInterface.
