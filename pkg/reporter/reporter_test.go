@@ -23,7 +23,7 @@ func TestNewReporter(t *testing.T) {
 	defer r.Close()
 
 	if r.writer == nil {
-		t.Fatal("Expected writer to be initialized, got nil")
+		t.Fatal("Expected writer to be initialised, got nil")
 	}
 }
 

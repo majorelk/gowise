@@ -41,7 +41,7 @@ func (tw *TWrapper) Run(name string, f func(t TestInterface)) bool {
 }
 
 // MockT is a mock implementation of the TestRunnerInterface.
-// It's used for testing the behavior of the TestRunner.
+// It's used for testing the behaviour of the TestRunner.
 // It has two slices of strings: Errors and Fatals, which store the error and fatal messages respectively.
 // It also has two boolean fields: CalledErrorf and CalledFatalf, which indicate whether Errorf or Fatalf were called.
 type MockT struct {
@@ -70,7 +70,7 @@ func (m *MockT) Run(name string, f func(t TestInterface)) bool {
 }
 
 // MockReporter is a mock implementation of the ReporterInterface.
-// It's used for testing the behavior of the TestRunner.
+// It's used for testing the behaviour of the TestRunner.
 type MockReporter struct {
 	CalledReportTestOutput bool
 	ReportedOutput         []testoutput.TestOutput
@@ -101,7 +101,7 @@ func (m *MockT) Fatalf(format string, args ...interface{}) {
 	m.CalledFatalf = true
 }
 
-// TestLoggerError is a test case for checking the logging behavior of the TestRunner when a test fails.
+// TestLoggerError is a test case for checking the logging behaviour of the TestRunner when a test fails.
 // It checks if the logger logs the correct error message.
 func TestLoggerError(t *testing.T) {
 	mockLogger := logging.NewMockLogger()
@@ -122,7 +122,7 @@ func TestLoggerError(t *testing.T) {
 	}
 }
 
-// TestLoggerNoInfoOnError is a test case for checking the logging behavior of the TestRunner when a test fails.
+// TestLoggerNoInfoOnError is a test case for checking the logging behaviour of the TestRunner when a test fails.
 // It checks if the logger does not log an info message.
 func TestLoggerNoInfoOnError(t *testing.T) {
 	mockLogger := logging.NewMockLogger()
@@ -139,7 +139,7 @@ func TestLoggerNoInfoOnError(t *testing.T) {
 	}
 }
 
-// TestLoggerNoErrorOnPass is a test case for checking the logging behavior of the TestRunner when a test passes.
+// TestLoggerNoErrorOnPass is a test case for checking the logging behaviour of the TestRunner when a test passes.
 // It checks if the logger does not log an error message.
 func TestLoggerNoErrorOnPass(t *testing.T) {
 	mockLogger := logging.NewMockLogger()
@@ -154,7 +154,7 @@ func TestLoggerNoErrorOnPass(t *testing.T) {
 	}
 }
 
-// TestErrorfOnFail is a test case for checking the behavior of the TestRunner when a test fails and continueOnFail is true.
+// TestErrorfOnFail is a test case for checking the behaviour of the TestRunner when a test fails and continueOnFail is true.
 // It checks if t.Errorf is called.
 func TestErrorfOnFail(t *testing.T) {
 	// Create a new MockT instance.
@@ -172,7 +172,7 @@ func TestErrorfOnFail(t *testing.T) {
 	}
 }
 
-// TestFatalfOnFail is a test case for checking the behavior of the TestRunner when a test fails and continueOnFail is false.
+// TestFatalfOnFail is a test case for checking the behaviour of the TestRunner when a test fails and continueOnFail is false.
 // It checks if t.Fatalf is called.
 func TestFatalfOnFail(t *testing.T) {
 	mockT := &MockT{}
@@ -200,7 +200,7 @@ func (m *MockReporter) ReportTestOutput(output testoutput.TestOutput) error {
 	return m.Error
 }
 
-// TestReportTestOutput is a test case for checking the behavior of the TestRunner when a test is run.
+// TestReportTestOutput is a test case for checking the behaviour of the TestRunner when a test is run.
 // It checks if the reporter's ReportTestOutput method is called with the correct output.
 func TestReportTestOutput(t *testing.T) {
 	mockLogger := logging.NewMockLogger()
@@ -228,7 +228,7 @@ func TestReportTestOutput(t *testing.T) {
 	}
 }
 
-// TestGenerateReport tests the behavior of the GenerateReport method.
+// TestGenerateReport tests the behaviour of the GenerateReport method.
 // It checks if the ReportTestOutput method of the ReporterInterface is called for each test that was run,
 // and if it correctly passes the test output to the ReportTestOutput method.
 func TestGenerateReport(t *testing.T) {
@@ -267,7 +267,7 @@ func TestGenerateReport(t *testing.T) {
 	}
 }
 
-// TestGenerateReportFailure tests the behavior of the GenerateReport method when a test fails.
+// TestGenerateReportFailure tests the behaviour of the GenerateReport method when a test fails.
 // It checks if the ReportTestOutput method of the ReporterInterface is called for each test that was run,
 // and if it correctly passes the test output to the ReportTestOutput method.
 func TestGenerateReportFailure(t *testing.T) {
