@@ -60,13 +60,13 @@ func (a *Assert) DeepEqual(expected, actual interface{}) {
 func (a *Assert) Same(expected, actual interface{}) {
 	expectedPtr := reflect.ValueOf(expected)
 	actualPtr := reflect.ValueOf(actual)
-	
+
 	// Both must be pointers or both must be the same value
 	if expectedPtr.Kind() != actualPtr.Kind() {
 		a.reportError(expected, actual, "expected same pointer identity but different types")
 		return
 	}
-	
+
 	if expectedPtr.Kind() == reflect.Ptr {
 		if expectedPtr.Pointer() != actualPtr.Pointer() {
 			a.reportError(expected, actual, "expected same pointer identity")
