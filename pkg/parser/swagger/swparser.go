@@ -63,8 +63,8 @@ type Info struct {
 	Description       string `json:"description"`
 	TermsOfServiceUrl string `json:"termsOfServiceUrl"`
 	Contact           string `json:"contact"`
-	License           string `json:"license"`
-	LicenseUrl        string `json:"licenseUrl"`
+	Licence           string `json:"license"`
+	LicenceUrl        string `json:"licenseUrl"`
 }
 
 // SwaggerInfo1 represents a Swagger 1.0 document. It contains fields for the Swagger version,

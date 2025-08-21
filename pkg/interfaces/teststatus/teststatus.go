@@ -25,4 +25,3 @@ func (r Result) GetResult() string {
 		return "Unknown"
 	}
 }
-

@@ -13,7 +13,8 @@ import (
 	"gowise/pkg/reporter"              // Import reporter package
 	"time"                             // Import time package
 
-	"github.com/google/uuid" // Import uuid package
+	"crypto/rand"
+	"encoding/hex"
 )
 
 // TestInterface is an interface that includes the methods needed for running tests.
@@ -72,14 +73,18 @@ func (tr *TestRunner) RunTest(testName string, testFunc func(assert *assertions.
 		duration := endTime.Sub(startTime) // Calculate the duration of the test
 
 		resultString := resultInside.GetResult()
-		testID := uuid.New().String() // Generate a unique ID for the test
+		testID := generateTestID() // Generate a unique ID for the test
 
 		if resultInside != teststatus.Passed {
 			tr.logger.LogError(fmt.Errorf("test %s failed", testName))
+			var err error
 			if tr.continueOnFail {
-				t.Errorf("Test %s failed", testName) // Call Errorf here
+				t.Errorf("Test %s failed", testName)
 			} else {
-				t.Fatalf("Test %s failed", testName) // Call Fatalf here
+				t.Fatalf("Test %s failed", testName)
+			}
+			if err != nil {
+				tr.logger.LogError(fmt.Errorf("failed to log error: %v", err))
 			}
 		} else {
 			tr.logger.LogInfo(fmt.Sprintf("Test %s passed", testName))
@@ -109,4 +114,11 @@ func (tr *TestRunner) GenerateReport() *reporter.TestReport { // Fix the undecla
 	}
 
 	return report
+}
+
+// generateTestID creates a unique test ID using crypto/rand (stdlib only)
+func generateTestID() string {
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
 }

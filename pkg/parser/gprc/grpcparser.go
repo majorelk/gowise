@@ -6,11 +6,11 @@
 //
 // The GRPCInfo struct is defined as follows:
 //
-// type GRPCInfo struct {
-//     ServiceName string     // The name of the gRPC service
-//     MethodName  string     // The name of the method being called
-//     Params      url.Values // Any parameters included in the message
-// }
+//	type GRPCInfo struct {
+//	    ServiceName string     // The name of the gRPC service
+//	    MethodName  string     // The name of the method being called
+//	    Params      url.Values // Any parameters included in the message
+//	}
 //
 // The ParseGRPCMessage function splits the input message on the "/" character to separate the
 // service name from the rest of the message. It then splits the remainder of the message on the
