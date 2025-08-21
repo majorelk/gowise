@@ -95,10 +95,15 @@ jobs:
 
       - name: UK English spelling check
         run: |
-          # Check for US spellings in code comments and docs
-          US_SPELLINGS="behavior|initialize|organize|prioritize|optimize|license"
+          # Check for US spellings in code comments and docs (excluding JSON tags)
+          US_SPELLINGS="behavior|initialize|organize|prioritize|optimize"
           if grep -r -E "$US_SPELLINGS" --include="*.go" --include="*.md" . | grep -v ".git"; then
             echo "Found US English spellings. Use UK English (behaviour, initialise, etc.)"
+            exit 1
+          fi
+          # Check for "license" but exclude JSON struct tags
+          if grep -r "license" --include="*.go" --include="*.md" . | grep -v ".git" | grep -v 'json:"license' | grep -v ".git"; then
+            echo "Found 'license' - use 'licence' in UK English (excluding JSON tags)"
             exit 1
           fi
 
