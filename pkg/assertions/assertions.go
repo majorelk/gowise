@@ -51,6 +51,34 @@ func (a *Assert) NotEqual(expected, actual interface{}) {
 	}
 }
 
+// DeepEqual asserts that two values are deeply equal (alias to Equal for consistency).
+func (a *Assert) DeepEqual(expected, actual interface{}) {
+	a.Equal(expected, actual)
+}
+
+// Same asserts that two values have the same pointer identity.
+func (a *Assert) Same(expected, actual interface{}) {
+	expectedPtr := reflect.ValueOf(expected)
+	actualPtr := reflect.ValueOf(actual)
+	
+	// Both must be pointers or both must be the same value
+	if expectedPtr.Kind() != actualPtr.Kind() {
+		a.reportError(expected, actual, "expected same pointer identity but different types")
+		return
+	}
+	
+	if expectedPtr.Kind() == reflect.Ptr {
+		if expectedPtr.Pointer() != actualPtr.Pointer() {
+			a.reportError(expected, actual, "expected same pointer identity")
+		}
+	} else {
+		// For non-pointers, check if they're literally the same value
+		if expectedPtr.Pointer() != actualPtr.Pointer() {
+			a.reportError(expected, actual, "expected same identity")
+		}
+	}
+}
+
 // True asserts that a value is true.
 func (a *Assert) True(value bool) {
 	if !value {
