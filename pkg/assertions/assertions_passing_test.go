@@ -5,8 +5,8 @@
 package assertions
 
 import (
-	"testing"
 	"fmt"
+	"testing"
 )
 
 // TestAssertions contains the regular tests for the assertions package.
@@ -21,7 +21,7 @@ func TestAssertions(t *testing.T) {
 		}{
 			{42, 42, true},
 			{true, true, true},
-			{false,false,true},
+			{false, false, true},
 		}
 
 		for i, tc := range testCases {
@@ -114,4 +114,3 @@ func TestAssertions(t *testing.T) {
 		}
 	})
 }
-

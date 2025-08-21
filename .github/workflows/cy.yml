@@ -1,39 +1,118 @@
 name: CI
 
-on: [push]
+on: [push, pull_request]
 
 jobs:
-  build:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.21', '1.22', '1.23']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Format check
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Code is not formatted. Run 'go fmt ./...'"
+            gofmt -s -d .
+            exit 1
+          fi
+
+      - name: Vet check
+        run: go vet ./...
+
+      - name: No external modules guard
+        run: |
+          if [ "$(go list -m all | wc -l | tr -d ' ')" -ne 1 ]; then
+            echo "External modules detected. Only stdlib allowed."
+            go list -m all
+            exit 1
+          fi
+
+      - name: Run tests with race detection
+        run: go test ./... -race -count=1
+
+      - name: Run benchmarks
+        run: go test ./... -bench=. -run=^$ -benchtime=1s
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+
+      - name: Generate coverage report
+        run: go test ./... -coverprofile=coverage.out
+
+      - name: Coverage check
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "Coverage below 80%"
+            exit 1
+          fi
+
+  lint:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.18.1
+          go-version: '1.23'
 
-      - name: Check if tests exist
-        id: check-tests
+      - name: Check behaviour-focused tests
         run: |
-          if find . -name "*_test.go" | grep -q .; then
-            echo "::set-output name=tests_exist::true"
-          else
-            echo "::set-output name=tests_exist::false"
+          # Check for anti-patterns in test files
+          if grep -r "unsafe\." --include="*_test.go" .; then
+            echo "Found unsafe usage in tests - violates behaviour-focused testing"
+            exit 1
+          fi
+          
+          if grep -r "reflect\.ValueOf.*CanSet\|reflect\.ValueOf.*Set" --include="*_test.go" .; then
+            echo "Found reflection to access unexported fields in tests"
+            exit 1
           fi
 
-      - name: Run tests
-        if: steps.check-tests.outputs.tests_exist == 'true'
-        run: go test ./...
+      - name: UK English spelling check
+        run: |
+          # Check for US spellings in code comments and docs
+          US_SPELLINGS="behavior|initialize|organize|prioritize|optimize|license"
+          if grep -r -E "$US_SPELLINGS" --include="*.go" --include="*.md" . | grep -v ".git"; then
+            echo "Found US English spellings. Use UK English (behaviour, initialise, etc.)"
+            exit 1
+          fi
 
-      - name: Create PR
-        if: steps.check-tests.outputs.tests_exist == 'true' && success()
-        uses: repo-sync/pull-request@v2
-        with:
-          source_branch: "${{ github.ref }}"
-          destination_branch: "main"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pr_title: "Automated PR: All tests passed"
-          pr_body: "This is an automated Pull Request. All tests passed, so it's ready for review."
+      - name: Check documentation examples
+        run: |
+          # Ensure all exported functions have examples
+          for file in $(find . -name "*.go" -not -path "./.git/*" -not -name "*_test.go"); do
+            if grep -q "^func [A-Z]" "$file"; then
+              testfile="${file%%.go}_test.go"
+              if [ -f "$testfile" ]; then
+                if ! grep -q "^func Example" "$testfile"; then
+                  echo "Missing Example functions in $testfile"
+                  exit 1
+                fi
+              fi
+            fi
+          done

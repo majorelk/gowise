@@ -17,4 +17,3 @@ func TestSliceIsEqual(t *testing.T) {
 		SliceIsEqual(t, actualSlice, expectedSlice)
 	})
 }
-

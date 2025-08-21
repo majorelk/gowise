@@ -2,8 +2,8 @@
 package teststatus
 
 import (
-	"testing"
 	"gowise/pkg/assertions" // Import the assertions package
+	"testing"
 )
 
 // TestResultGetResult tests the GetResult method of the Result type.
@@ -23,4 +23,3 @@ func TestResultGetResult(t *testing.T) {
 }
 
 // Additional tests for other functionality in the teststatus package can be added similarly.
-

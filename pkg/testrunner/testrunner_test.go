@@ -59,7 +59,7 @@ func (m *MockReporter) Close() error {
 
 // Run is a mock implementation of the Run method in the TestRunnerInterface.
 // It simply calls the provided function with the MockT instance itself.
-func (m *MockT) Run(name string, f func(t *MockT)) bool {
+func (m *MockT) Run(name string, f func(t TestInterface)) bool {
 	// Call the provided function with the MockT instance.
 	f(m)
 
@@ -161,7 +161,7 @@ func TestErrorfOnFail(t *testing.T) {
 	mockT := &MockT{}
 
 	// Pass a function that accepts a *MockT to Run.
-	mockT.Run("TestErrorfOnFail", func(t *MockT) {
+	mockT.Run("TestErrorfOnFail", func(t TestInterface) {
 		// Call Errorf on the *MockT.
 		t.Errorf("This is an error")
 	})
@@ -178,7 +178,7 @@ func TestFatalfOnFail(t *testing.T) {
 	mockT := &MockT{}
 
 	// Pass a function that accepts a *MockT to Run.
-	mockT.Run("TestFatalfOnFail", func(t *MockT) {
+	mockT.Run("TestFatalfOnFail", func(t TestInterface) {
 		// Call Fatalf on the *MockT.
 		t.Fatalf("This is a fatal error")
 	})
@@ -273,7 +273,8 @@ func TestGenerateReport(t *testing.T) {
 func TestGenerateReportFailure(t *testing.T) {
 	mockLogger := logging.NewMockLogger()
 	mockReporter := &MockReporter{}
-	tr := NewTestRunner(&TWrapper{t: t}, mockLogger, true, mockReporter)
+	mockT := &MockT{T: t}
+	tr := NewTestRunner(mockT, mockLogger, true, mockReporter)
 
 	// Run some tests
 	testNames := []string{"Test1", "Test2", "Test3"}

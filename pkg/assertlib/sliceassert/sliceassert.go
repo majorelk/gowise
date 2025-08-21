@@ -31,4 +31,3 @@ func SliceIsEqual(t *testing.T, actual, expected interface{}) {
 		}
 	}
 }
-

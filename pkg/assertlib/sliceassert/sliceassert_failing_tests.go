@@ -1,5 +1,6 @@
 // TestSliceIsEqual_Failing contains intentionally failing tests.
 
+//go:build failing_tests
 // +build failing_tests
 
 package sliceassert

@@ -5,11 +5,11 @@
 //
 // Example:
 //
-//     assert := assertions.New(t)
-//     assert.True(true)
-//     if assert.Error() != "" {
-//         t.Errorf("Expected no error, but got: %s", assert.Error())
-//     }
+//	assert := assertions.New(t)
+//	assert.True(true)
+//	if assert.Error() != "" {
+//	    t.Errorf("Expected no error, but got: %s", assert.Error())
+//	}
 package assertions
 
 import (
