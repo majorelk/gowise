@@ -18,7 +18,7 @@ Go’s built-in `testing` package is excellent but intentionally minimal. **GoWi
 | Area                         | Description                                                                                     | Status |
 |-----------------------------|-------------------------------------------------------------------------------------------------|--------|
 | Zero dependencies           | Only the Go standard library.                                                                   | ✅     |
-| Assertions                  | Rich, fluent assertions with readable diffs.                                                     | 🚧     |
+| Assertions                  | Rich, fluent assertions with readable diffs.                                                     | ✅     |
 | Parallel test execution     | Run tests concurrently with sensible scheduling and isolation.                                   | 🚧     |
 | Test lifecycle              | `BeforeAll/AfterAll`, `BeforeEach/AfterEach`, per-test timeouts.                                 | 🚧     |
 | Focus & skip                | `wise.Focus(...)`, `wise.Skip(...)` helpers.                                                     | 🚧     |
