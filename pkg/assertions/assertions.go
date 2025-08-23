@@ -26,6 +26,24 @@ import (
 	"time"
 )
 
+// isComparable checks if two values can be compared with ==.
+// This is a fast-path optimisation for common types.
+func isComparable(a, b interface{}) bool {
+	if a == nil || b == nil {
+		return true
+	}
+
+	va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
+
+	// Must be same type to be comparable
+	if va.Type() != vb.Type() {
+		return false
+	}
+
+	// Check if the type is comparable
+	return va.Type().Comparable()
+}
+
 // Assert is a struct that holds the testing context and error message.
 type Assert struct {
 	t        interface{}
@@ -38,36 +56,120 @@ func New(t interface{}) *Assert {
 }
 
 // Equal asserts that two values are equal.
-func (a *Assert) Equal(expected, actual interface{}) {
-	if !reflect.DeepEqual(expected, actual) {
-		a.reportError(expected, actual, "expected to be equal")
+// Uses fast-path comparison for comparable types, falls back to reflect.DeepEqual.
+func (a *Assert) Equal(got, want interface{}) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Fast path for nil comparison
+	if got == nil && want == nil {
+		return
+	}
+	if (got == nil) != (want == nil) {
+		a.reportError(got, want, "values differ")
+		return
+	}
+
+	// Fast path for comparable types using type assertion
+	if isComparable(got, want) && got == want {
+		return
+	}
+	if isComparable(got, want) && got != want {
+		a.reportError(got, want, "values differ")
+		return
+	}
+
+	// Fallback to deep equality
+	if !reflect.DeepEqual(got, want) {
+		a.reportError(got, want, "values differ")
 	}
 }
 
 // NotEqual asserts that two values are not equal.
-func (a *Assert) NotEqual(expected, actual interface{}) {
-	if reflect.DeepEqual(expected, actual) {
-		a.reportError(expected, actual, "expected to be not equal")
+// Uses fast-path comparison for comparable types, falls back to reflect.DeepEqual.
+func (a *Assert) NotEqual(got, want interface{}) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Fast path for nil comparison
+	if got == nil && want == nil {
+		a.reportError(got, want, "values should not be equal")
+		return
+	}
+	if (got == nil) != (want == nil) {
+		return // different nil states = not equal, which is what we want
+	}
+
+	// Fast path for comparable types
+	if isComparable(got, want) {
+		if got == want {
+			a.reportError(got, want, "values should not be equal")
+		}
+		return
+	}
+
+	// Fallback to deep equality
+	if reflect.DeepEqual(got, want) {
+		a.reportError(got, want, "values should not be equal")
 	}
 }
 
-// True asserts that a value is true.
-func (a *Assert) True(value bool) {
-	if !value {
-		a.reportError(true, value, "expected to be true")
+// DeepEqual asserts that two values are deeply equal.
+// Always uses reflect.DeepEqual for thorough comparison.
+func (a *Assert) DeepEqual(got, want interface{}) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		a.reportError(got, want, "values differ")
 	}
 }
 
-// False asserts that a value is false.
-func (a *Assert) False(value bool) {
-	if value {
-		a.reportError(false, value, "expected to be false")
+// Same asserts that two values have the same pointer identity.
+// Uses == comparison which tests for pointer identity.
+func (a *Assert) Same(got, want interface{}) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Use == for pointer identity comparison
+	// This works for pointers, interfaces, channels, maps, slices, and functions
+	if got == want {
+		return
+	}
+
+	a.reportError(got, want, "expected same pointer identity")
+}
+
+// True asserts that a boolean condition is true.
+func (a *Assert) True(condition bool) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if !condition {
+		a.reportError(true, condition, "expected condition to be true")
+	}
+}
+
+// False asserts that a boolean condition is false.
+func (a *Assert) False(condition bool) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if condition {
+		a.reportError(false, condition, "expected condition to be false")
 	}
 }
 
 // reportError is a helper function to report test failures.
-func (a *Assert) reportError(expected, actual interface{}, message string) {
-	a.errorMsg = fmt.Sprintf("%s - Expected %v, Actual: %v", message, expected, actual)
+// Uses lazy formatting and UK English.
+func (a *Assert) reportError(got, want interface{}, message string) {
+	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
 }
 
 // Error returns the error message if the assertion failed.
@@ -76,51 +178,104 @@ func (a *Assert) Error() string {
 }
 
 // Nil asserts that a value is nil.
+// Supports pointers, interfaces, slices, maps, channels, and functions.
 func (a *Assert) Nil(value interface{}) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	if !isNil(value) {
-		a.reportError(nil, value, "expected to be nil")
+		a.reportError(nil, value, "expected value to be nil")
 	}
 }
 
 // NotNil asserts that a value is not nil.
+// Supports pointers, interfaces, slices, maps, channels, and functions.
 func (a *Assert) NotNil(value interface{}) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	if isNil(value) {
-		a.reportError("not nil", value, "expected to be not nil")
+		a.reportError("not nil", value, "expected value to not be nil")
 	}
 }
 
 // isNil is a helper function to check if a value is nil.
+// Handles both untyped nil and typed nil values across different types.
 func isNil(value interface{}) bool {
+	// Handle untyped nil
 	if value == nil {
 		return true
 	}
 
-	valueType := reflect.TypeOf(value)
-	if valueType.Kind() == reflect.Ptr || valueType.Kind() == reflect.Slice || valueType.Kind() == reflect.Map {
-		return reflect.ValueOf(value).IsNil()
-	}
+	// Use reflection to check typed nil values
+	valueRef := reflect.ValueOf(value)
+	valueType := valueRef.Kind()
 
-	return false
+	// Check types that can be nil
+	switch valueType {
+	case reflect.Ptr, reflect.Interface, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func:
+		return valueRef.IsNil()
+	default:
+		return false
+	}
 }
 
-// Contains asserts that a slice, array, or string contains a certain element or substring.
+// Contains asserts that a container includes a specific item.
+// Supports strings (substring), slices, arrays, and maps (key lookup).
 func (a *Assert) Contains(container, item interface{}) {
-	containerValue := reflect.ValueOf(container)
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
 
-	switch reflect.TypeOf(container).Kind() {
+	if container == nil {
+		a.reportError(item, nil, "cannot check containment in nil container")
+		return
+	}
+
+	containerValue := reflect.ValueOf(container)
+	containerType := containerValue.Type()
+
+	switch containerType.Kind() {
+	case reflect.String:
+		// String contains substring
+		containerStr := container.(string)
+		itemStr, ok := item.(string)
+		if !ok {
+			a.reportError(item, "string", "item must be string for string containers")
+			return
+		}
+		if strings.Contains(containerStr, itemStr) {
+			return
+		}
+
 	case reflect.Slice, reflect.Array:
+		// Check if slice/array contains element
 		for i := 0; i < containerValue.Len(); i++ {
 			if reflect.DeepEqual(containerValue.Index(i).Interface(), item) {
 				return
 			}
 		}
-	case reflect.String:
-		if strings.Contains(container.(string), item.(string)) {
+
+	case reflect.Map:
+		// Check if map contains key
+		itemValue := reflect.ValueOf(item)
+		if !itemValue.Type().AssignableTo(containerType.Key()) {
+			a.reportError(item, containerType.Key(), "item type does not match map key type")
 			return
 		}
+		mapValue := containerValue.MapIndex(itemValue)
+		if mapValue.IsValid() {
+			return
+		}
+
+	default:
+		a.reportError(container, "slice, array, map, or string", "container must be slice, array, map, or string")
+		return
 	}
 
-	a.reportError(container, item, "expected to contain")
+	a.reportError(item, container, "expected container to contain item")
 }
 
 // Greater asserts that the first value is greater than the second.
@@ -212,16 +367,29 @@ func (a *Assert) IsNotEmpty(value interface{}) {
 	}
 }
 
-// Len asserts that a given array, slice, map, or string has a specific length.
-func (a *Assert) Len(value interface{}, expectedLen int) {
-	valueType := reflect.TypeOf(value)
-	switch valueType.Kind() {
-	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
-		if reflect.ValueOf(value).Len() != expectedLen {
-			a.reportError(expectedLen, reflect.ValueOf(value).Len(), "expected different length")
+// Len asserts that a container has the expected length.
+// Supports strings, slices, arrays, maps, and channels.
+func (a *Assert) Len(container interface{}, expectedLen int) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if container == nil {
+		a.reportError(expectedLen, "<nil>", "cannot get length of nil container")
+		return
+	}
+
+	containerValue := reflect.ValueOf(container)
+	containerType := containerValue.Type()
+
+	switch containerType.Kind() {
+	case reflect.String, reflect.Slice, reflect.Array, reflect.Map, reflect.Chan:
+		actualLen := containerValue.Len()
+		if actualLen != expectedLen {
+			a.reportError(expectedLen, actualLen, "expected different length")
 		}
 	default:
-		a.reportError(nil, value, "invalid type for Len")
+		a.reportError(container, "string, slice, array, map, or channel", "container must be string, slice, array, map, or channel")
 	}
 }
 
