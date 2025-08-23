@@ -51,18 +51,20 @@ package maths_test
 import (
   "testing"
 
-  "github.com/majorelk/gowise/assert"
+  "github.com/majorelk/gowise/pkg/assertions"
 )
 
 func TestAdd(t *testing.T) {
+  assert := assertions.New(t)
+  
   got := 2 + 3
   want := 5
 
-  assert.Equal(t, got, want)
-  assert.NotEqual(t, got, 6)
-  assert.True(t, got > 0)
-  assert.False(t, got < 0)
-  assert.InDelta(t, 3.14159, 3.1416, 0.0002)
+  assert.Equal(got, want)
+  assert.NotEqual(got, 6)
+  assert.True(got > 0)
+  assert.False(got < 0)
+  assert.InDelta(3.14159, 3.1416, 0.0002)
 }
 
 ```
@@ -79,7 +81,7 @@ package store_test
 import (
   "testing"
   "github.com/majorelk/gowise/wise"
-  "github.com/majorelk/gowise/assert"
+  "github.com/majorelk/gowise/pkg/assertions"
 )
 
 func TestStoreSuite(t *testing.T) {
@@ -92,15 +94,19 @@ func TestStoreSuite(t *testing.T) {
     s.BeforeEach(func() { db.Reset() })
 
     s.Test("put/gets a value", func(t *testing.T) {
+      assert := assertions.New(t)
+      
       db.Put("k", "v")
       got, ok := db.Get("k")
-      assert.True(t, ok)
-      assert.Equal(t, got, "v")
+      assert.True(ok)
+      assert.Equal(got, "v")
     })
 
     s.Test("missing key", func(t *testing.T) {
+      assert := assertions.New(t)
+      
       _, ok := db.Get("nope")
-      assert.False(t, ok)
+      assert.False(ok)
     })
   })
 }
@@ -113,25 +119,30 @@ func TestStoreSuite(t *testing.T) {
 ### Assertion Library (examples)
 
 ```go
-assert.Equal(t, got, want)              // Deep equality (structs, maps, slices)
-assert.NotEqual(t, got, dontWant)
+assert := assertions.New(t)
 
-assert.Same(t, &a, &b)                  // Pointer identity
-assert.Nil(t, err)                      // err == nil
-assert.NotNil(t, v)
+// Core equality assertions (fast-path optimised)
+assert.Equal(got, want)              // Deep equality with fast-path for comparable types
+assert.NotEqual(got, dontWant)       // Inverse equality checking
+assert.DeepEqual(got, want)          // Explicit deep equality via reflection
+assert.Same(&a, &a)                  // Pointer identity comparison
 
-assert.True(t, cond)
-assert.False(t, cond)
+// Comprehensive nil checking (all nillable types)
+assert.Nil(err)                      // Handles interfaces, pointers, slices, maps, channels, functions  
+assert.NotNil(value)                 // Non-nil verification with type safety
 
-assert.InDelta(t, 3.0, 3.001, 0.01)     // Float tolerance
-assert.Contains(t, "hello world", "world")
-assert.Len(t, mySlice, 3)
+// Boolean condition assertions
+assert.True(condition)               // Boolean true with clear error context
+assert.False(condition)              // Boolean false with clear error context
 
-assert.Panics(t, func() { must() })
-assert.NotPanics(t, func() { safe() })
+// Collection assertions (type-safe and performant)
+assert.Len(container, 3)             // Length verification for strings, slices, arrays, maps, channels
+assert.Contains(container, item)     // Membership testing for strings, slices, arrays, maps
 
-type User struct{ ID int; Name string }
-assert.Match(t, User{1, "A"}, func(u User) bool { return u.ID > 0 && u.Name != "" })
+// Additional assertions (existing functionality)
+assert.InDelta(3.0, 3.001, 0.01)     // Float tolerance
+assert.Panics(func() { must() })      // Panic detection
+assert.NotPanics(func() { safe() })   // No-panic verification
 ```
 > All assertions allocate minimally and avoid reflection where possible. Where reflection is required (e.g. deep equality), it is kept tight and well-tested.
 

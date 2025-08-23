@@ -1,15 +1,26 @@
-// Package assertions provides assertion functions for testing.
+// Package assertions provides fast, ergonomic assertion functions for testing.
 //
-// Assertions is a utility package that offers functions to perform common
-// assertion checks in tests.
+// GoWise assertions offer performance-optimised equality checking, comprehensive
+// nil handling, and type-safe collection operations while maintaining zero
+// external dependencies.
 //
-// Example:
+// Core Features:
+//   - Fast-path optimisation for comparable types (avoids reflection when possible)
+//   - Comprehensive nil checking for all 6 nillable Go types
+//   - Type-safe collection operations (Contains, Len) 
+//   - Clear, actionable error messages in UK English
+//   - Proper t.Helper() integration for accurate test stack traces
+//
+// Example usage:
 //
 //	assert := assertions.New(t)
-//	assert.True(true)
-//	if assert.Error() != "" {
-//	    t.Errorf("Expected no error, but got: %s", assert.Error())
-//	}
+//	assert.Equal(got, want)        // Fast-path for comparable types, deep equality fallback
+//	assert.Contains(slice, item)   // Works with slices, maps, strings
+//	assert.Nil(err)               // Handles interface nil gotcha correctly
+//	assert.True(condition)        // Clear boolean assertions
+//
+// All assertions are designed for minimal allocation and maximum clarity,
+// following Go's stdlib-only philosophy.
 package assertions
 
 import (
