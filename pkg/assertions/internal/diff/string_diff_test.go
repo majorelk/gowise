@@ -1,0 +1,107 @@
+package diff
+
+import (
+	"testing"
+)
+
+// TestDiffResult tests the basic DiffResult struct functionality.
+func TestDiffResult(t *testing.T) {
+	t.Run("no difference", func(t *testing.T) {
+		result := StringDiff("hello", "hello")
+		
+		if result.HasDiff {
+			t.Errorf("Expected no difference for identical strings")
+		}
+		
+		if result.Summary != "" {
+			t.Errorf("Expected empty summary for identical strings, got: %q", result.Summary)
+		}
+		
+		if result.Position != nil {
+			t.Errorf("Expected nil position for identical strings, got: %d", *result.Position)
+		}
+	})
+	
+	t.Run("simple difference", func(t *testing.T) {
+		result := StringDiff("hello", "world")
+		
+		if !result.HasDiff {
+			t.Errorf("Expected difference for different strings")
+		}
+		
+		if result.Summary == "" {
+			t.Errorf("Expected non-empty summary for different strings")
+		}
+		
+		if result.Position == nil {
+			t.Errorf("Expected position for different strings")
+		} else if *result.Position != 0 {
+			t.Errorf("Expected position 0 for completely different strings, got: %d", *result.Position)
+		}
+	})
+}
+
+// TestStringDiffBasic tests the basic string diff functionality.
+func TestStringDiffBasic(t *testing.T) {
+	tests := []struct {
+		name            string
+		got, want       string
+		expectDiff      bool
+		expectedPos     *int  // nil if no diff expected
+		expectedSummary string
+	}{
+		{
+			name:       "identical strings",
+			got:        "hello",
+			want:       "hello", 
+			expectDiff: false,
+			expectedPos: nil,
+			expectedSummary: "",
+		},
+		{
+			name:       "different at start",
+			got:        "Hello",
+			want:       "hello",
+			expectDiff: true,
+			expectedPos: intPtr(0),
+			expectedSummary: "string values differ at position 0",
+		},
+		{
+			name:       "different in middle",
+			got:        "hello world",
+			want:       "hello World",
+			expectDiff: true,
+			expectedPos: intPtr(6),
+			expectedSummary: "string values differ at position 6",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := StringDiff(tt.got, tt.want)
+			
+			if result.HasDiff != tt.expectDiff {
+				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
+			}
+			
+			if tt.expectedPos == nil && result.Position != nil {
+				t.Errorf("Expected nil position, got %d", *result.Position)
+			} else if tt.expectedPos != nil {
+				if result.Position == nil {
+					t.Errorf("Expected position %d, got nil", *tt.expectedPos)
+				} else if *result.Position != *tt.expectedPos {
+					t.Errorf("Position = %d, want %d", *result.Position, *tt.expectedPos)
+				}
+			}
+			
+			if result.Summary != tt.expectedSummary {
+				t.Errorf("Summary = %q, want %q", result.Summary, tt.expectedSummary)
+			}
+		})
+	}
+}
+
+// Helper function for test readability
+func intPtr(i int) *int {
+	return &i
+}
