@@ -114,3 +114,86 @@ func TestAssertions(t *testing.T) {
 		}
 	})
 }
+
+// ExampleAssert_Equal demonstrates the Equal assertion for fast-path equality checking.
+func ExampleAssert_Equal() {
+	assert := New(&testing.T{})
+
+	// Comparable types use fast-path
+	assert.Equal(42, 42)
+	assert.Equal("hello", "hello")
+	assert.Equal(true, true)
+
+	// Complex types use deep equality
+	assert.Equal([]int{1, 2, 3}, []int{1, 2, 3})
+	assert.Equal(map[string]int{"a": 1}, map[string]int{"a": 1})
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+// ExampleAssert_NotEqual demonstrates the NotEqual assertion.
+func ExampleAssert_NotEqual() {
+	assert := New(&testing.T{})
+
+	assert.NotEqual(42, 24)
+	assert.NotEqual("hello", "world")
+	assert.NotEqual([]int{1, 2}, []int{1, 2, 3})
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+// ExampleAssert_DeepEqual demonstrates explicit deep equality checking.
+func ExampleAssert_DeepEqual() {
+	assert := New(&testing.T{})
+
+	type Person struct {
+		Name string
+		Age  int
+	}
+
+	assert.DeepEqual(
+		Person{Name: "Alice", Age: 30},
+		Person{Name: "Alice", Age: 30},
+	)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+// ExampleAssert_Same demonstrates pointer identity comparison.
+func ExampleAssert_Same() {
+	assert := New(&testing.T{})
+
+	x := 42
+	ptr1 := &x
+	ptr2 := ptr1
+
+	assert.Same(ptr1, ptr2) // same pointer
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+// ExampleAssert_True demonstrates boolean true assertion.
+func ExampleAssert_True() {
+	assert := New(&testing.T{})
+
+	assert.True(2 > 1)
+	assert.True(len("hello") == 5)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+// ExampleAssert_False demonstrates boolean false assertion.
+func ExampleAssert_False() {
+	assert := New(&testing.T{})
+
+	assert.False(2 < 1)
+	assert.False(len("") > 0)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
