@@ -101,6 +101,81 @@ func TestStringDiffBasic(t *testing.T) {
 	}
 }
 
+// TestStringDiffWithContext tests context window functionality around differences.
+func TestStringDiffWithContext(t *testing.T) {
+	tests := []struct {
+		name        string
+		got, want   string
+		contextSize int
+		expectDiff  bool
+	}{
+		{
+			name:        "short strings no context needed",
+			got:         "abc",
+			want:        "abd", 
+			contextSize: 5,
+			expectDiff:  true,
+		},
+		{
+			name:        "long strings with context",
+			got:         "the quick brown fox jumps",
+			want:        "the quick black fox jumps",
+			contextSize: 3,
+			expectDiff:  true,
+		},
+		{
+			name:        "difference at start",
+			got:         "Hello world this is a test",
+			want:        "hello world this is a test",
+			contextSize: 5,
+			expectDiff:  true,
+		},
+		{
+			name:        "difference at end",
+			got:         "this is a test case",
+			want:        "this is a test cast",
+			contextSize: 4,
+			expectDiff:  true,
+		},
+		{
+			name:        "identical strings",
+			got:         "same string",
+			want:        "same string",
+			contextSize: 3,
+			expectDiff:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := StringDiffWithContext(tt.got, tt.want, tt.contextSize)
+			
+			if result.HasDiff != tt.expectDiff {
+				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
+			}
+			
+			if tt.expectDiff {
+				if result.Position == nil {
+					t.Errorf("Expected position for different strings")
+				}
+				if result.Context == "" {
+					t.Errorf("Expected non-empty context for different strings")
+				}
+				if result.Summary == "" {
+					t.Errorf("Expected non-empty summary for different strings")
+				}
+			} else {
+				if result.Position != nil {
+					t.Errorf("Expected nil position for identical strings")
+				}
+				if result.Context != "" {
+					t.Errorf("Expected empty context for identical strings, got: %q", result.Context)
+				}
+			}
+		})
+	}
+}
+
 // Helper function for test readability
 func intPtr(i int) *int {
 	return &i
