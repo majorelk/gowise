@@ -8,9 +8,9 @@ import (
 // TestStringDiffEdgeCases tests comprehensive edge cases to ensure robust behaviour
 func TestStringDiffEdgeCases(t *testing.T) {
 	tests := []struct {
-		name          string
-		got, want     string
-		expectDiff    bool
+		name           string
+		got, want      string
+		expectDiff     bool
 		checkBehaviour func(t *testing.T, result DiffResult)
 	}{
 		{
@@ -166,9 +166,9 @@ func TestStringDiffEdgeCases(t *testing.T) {
 // TestMultiLineEdgeCases tests comprehensive edge cases for multi-line string diff
 func TestMultiLineEdgeCases(t *testing.T) {
 	tests := []struct {
-		name          string
-		got, want     string
-		expectDiff    bool
+		name           string
+		got, want      string
+		expectDiff     bool
 		checkBehaviour func(t *testing.T, result DiffResult)
 	}{
 		{
@@ -295,9 +295,9 @@ line2`,
 // TestUnicodeEdgeCases tests comprehensive edge cases for Unicode string handling
 func TestUnicodeEdgeCases(t *testing.T) {
 	tests := []struct {
-		name          string
-		got, want     string
-		expectDiff    bool
+		name           string
+		got, want      string
+		expectDiff     bool
 		checkBehaviour func(t *testing.T, result DiffResult)
 	}{
 		{
@@ -400,10 +400,10 @@ func TestUnicodeEdgeCases(t *testing.T) {
 // TestContextWindowEdgeCases tests edge cases for context window functionality
 func TestContextWindowEdgeCases(t *testing.T) {
 	tests := []struct {
-		name          string
-		got, want     string
-		contextSize   int
-		expectDiff    bool
+		name           string
+		got, want      string
+		contextSize    int
+		expectDiff     bool
 		checkBehaviour func(t *testing.T, result DiffResult)
 	}{
 		{
@@ -488,4 +488,3 @@ func TestContextWindowEdgeCases(t *testing.T) {
 		})
 	}
 }
-

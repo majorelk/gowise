@@ -132,4 +132,3 @@ func (t *capturingT) Fatalf(format string, args ...interface{}) {
 	t.failed = true
 	// We don't actually log since our assertions use Error() method
 }
-
