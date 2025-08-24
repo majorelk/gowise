@@ -222,3 +222,48 @@ func splitLines(s string) []string {
 	return lines
 }
 
+// UnicodeStringDiff compares strings with Unicode-safe character counting,
+// returning rune positions instead of byte positions.
+func UnicodeStringDiff(got, want string) DiffResult {
+	if got == want {
+		return DiffResult{
+			HasDiff:    false,
+			Summary:    "",
+			Position:   nil,
+			Context:    "",
+			LineNumber: nil,
+		}
+	}
+
+	// Convert strings to rune slices for proper Unicode handling
+	gotRunes := []rune(got)
+	wantRunes := []rune(want)
+
+	// Find the first position where runes differ
+	minLen := len(gotRunes)
+	if len(wantRunes) < minLen {
+		minLen = len(wantRunes)
+	}
+
+	pos := 0
+	for i := 0; i < minLen; i++ {
+		if gotRunes[i] != wantRunes[i] {
+			pos = i
+			break
+		}
+	}
+
+	// If all runes match up to minLen but lengths differ
+	if pos == 0 && minLen > 0 && len(gotRunes) != len(wantRunes) {
+		pos = minLen
+	}
+
+	return DiffResult{
+		HasDiff:    true,
+		Summary:    fmt.Sprintf("string values differ at rune position %d", pos),
+		Position:   &pos,
+		Context:    "",
+		LineNumber: nil,
+	}
+}
+

@@ -255,6 +255,77 @@ line 3`,
 	}
 }
 
+// TestUnicodeStringDiff tests diff functionality with Unicode characters.
+func TestUnicodeStringDiff(t *testing.T) {
+	tests := []struct {
+		name       string
+		got, want  string
+		expectDiff bool
+		expectPos  *int // Expected rune position, not byte position
+	}{
+		{
+			name:       "identical Unicode strings",
+			got:        "Hello 🌍 World",
+			want:       "Hello 🌍 World",
+			expectDiff: false,
+			expectPos:  nil,
+		},
+		{
+			name:       "different Unicode characters",
+			got:        "Hello 🌍 World",
+			want:       "Hello 🌎 World",
+			expectDiff: true,
+			expectPos:  intPtr(6), // Position of the emoji (6th rune)
+		},
+		{
+			name:       "ASCII vs Unicode",
+			got:        "café",
+			want:       "cafe",
+			expectDiff: true,
+			expectPos:  intPtr(3), // Position of é (4th rune, 0-indexed = 3)
+		},
+		{
+			name:       "multi-byte character at start",
+			got:        "🚀 launch",
+			want:       "🛸 launch",
+			expectDiff: true,
+			expectPos:  intPtr(0), // First character differs
+		},
+		{
+			name:       "combining characters",
+			got:        "é",          // single character
+			want:       "e\u0301",   // e + combining acute accent  
+			expectDiff: true,
+			expectPos:  intPtr(1), // They differ at the second position (combining accent)
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := UnicodeStringDiff(tt.got, tt.want)
+			
+			if result.HasDiff != tt.expectDiff {
+				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
+			}
+			
+			if tt.expectDiff {
+				if result.Position == nil {
+					t.Errorf("Expected position for different strings")
+				} else if tt.expectPos != nil && *result.Position != *tt.expectPos {
+					t.Errorf("Position = %d, want %d", *result.Position, *tt.expectPos)
+				}
+				if result.Summary == "" {
+					t.Errorf("Expected non-empty summary for different strings")
+				}
+			} else {
+				if result.Position != nil {
+					t.Errorf("Expected nil position for identical strings")
+				}
+			}
+		})
+	}
+}
+
 // Helper function for test readability
 func intPtr(i int) *int {
 	return &i
