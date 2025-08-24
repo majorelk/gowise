@@ -205,3 +205,105 @@ line 4 changed`,
 		})
 	}
 }
+
+// TestSideBySideDiffBehaviour tests side-by-side diff behavioural output
+func TestSideBySideDiffBehaviour(t *testing.T) {
+	tests := []struct {
+		name                 string
+		got, want            string
+		expectSideBySideDiff func(t *testing.T, sideBySideDiff string)
+	}{
+		{
+			name: "basic side-by-side diff behaviour",
+			got: `line 1
+line 2 original
+line 3`,
+			want: `line 1
+line 2 changed
+line 3`,
+			expectSideBySideDiff: func(t *testing.T, sideBySideDiff string) {
+				// Behaviour: must contain column headers for user orientation
+				if !strings.Contains(sideBySideDiff, "Got") || !strings.Contains(sideBySideDiff, "Want") {
+					t.Errorf("Behaviour: expected side-by-side diff to contain Got/Want headers for user orientation, got: %q", sideBySideDiff)
+				}
+				// Behaviour: must show both versions of differing content
+				if !strings.Contains(sideBySideDiff, "line 2 original") {
+					t.Errorf("Behaviour: expected side-by-side diff to show original line content, got: %q", sideBySideDiff)
+				}
+				if !strings.Contains(sideBySideDiff, "line 2 changed") {
+					t.Errorf("Behaviour: expected side-by-side diff to show changed line content, got: %q", sideBySideDiff)
+				}
+				// Behaviour: must show identical lines for context
+				if !strings.Contains(sideBySideDiff, "line 1") || !strings.Contains(sideBySideDiff, "line 3") {
+					t.Errorf("Behaviour: expected side-by-side diff to show identical lines for context, got: %q", sideBySideDiff)
+				}
+			},
+		},
+		{
+			name: "different line counts behaviour",
+			got: `line 1
+line 2
+line 3`,
+			want: `line 1
+line 2
+line 3
+line 4`,
+			expectSideBySideDiff: func(t *testing.T, sideBySideDiff string) {
+				// Behaviour: must show additional lines that exist in one version
+				if !strings.Contains(sideBySideDiff, "line 4") {
+					t.Errorf("Behaviour: expected side-by-side diff to show additional line from 'want', got: %q", sideBySideDiff)
+				}
+				// Behaviour: output must accommodate all lines from both versions
+				lines := strings.Split(sideBySideDiff, "\n")
+				if len(lines) < 5 { // Headers + separator + at least 4 content lines
+					t.Errorf("Behaviour: expected side-by-side output to show all lines from both versions, got %d lines", len(lines))
+				}
+			},
+		},
+		{
+			name: "empty strings behaviour",
+			got:  "",
+			want: "",
+			expectSideBySideDiff: func(t *testing.T, sideBySideDiff string) {
+				// Behaviour: should still show headers for consistency
+				if !strings.Contains(sideBySideDiff, "Got") || !strings.Contains(sideBySideDiff, "Want") {
+					t.Errorf("Behaviour: expected headers even for empty strings, got: %q", sideBySideDiff)
+				}
+			},
+		},
+		{
+			name: "very long lines behaviour",
+			got:  "this is a very long line that exceeds typical display width and should be truncated properly",
+			want: "this is a very long line that exceeds typical display width and should be handled well",
+			expectSideBySideDiff: func(t *testing.T, sideBySideDiff string) {
+				// Behaviour: must handle long lines without breaking layout
+				lines := strings.Split(sideBySideDiff, "\n")
+				for _, line := range lines {
+					if len(line) > 100 { // Reasonable terminal width
+						t.Errorf("Behaviour: expected long lines to be handled without breaking layout, found line of length %d", len(line))
+					}
+				}
+				// Behaviour: must indicate truncation occurred
+				if !strings.Contains(sideBySideDiff, "...") {
+					t.Errorf("Behaviour: expected truncation indicator for long lines, got: %q", sideBySideDiff)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := EnhancedMultiLineStringDiff(tt.got, tt.want, 3)
+
+			// Behaviour: side-by-side diff should be generated for all comparisons
+			if result.SideBySideDiff == "" {
+				t.Errorf("Behaviour: expected side-by-side diff output to be generated, got empty string")
+			}
+
+			// Run custom behavioural checks
+			if tt.expectSideBySideDiff != nil {
+				tt.expectSideBySideDiff(t, result.SideBySideDiff)
+			}
+		})
+	}
+}
