@@ -71,6 +71,24 @@ const (
 	DiffFormatSideBySide
 )
 
+// isComparable checks if two values can be compared with ==.
+// This is a fast-path optimisation for common types.
+func isComparable(a, b interface{}) bool {
+	if a == nil || b == nil {
+		return true
+	}
+
+	va, vb := reflect.ValueOf(a), reflect.ValueOf(b)
+
+	// Must be same type to be comparable
+	if va.Type() != vb.Type() {
+		return false
+	}
+
+	// Check if the type is comparable
+	return va.Type().Comparable()
+}
+
 // Assert is a struct that holds the testing context and error message.
 type Assert struct {
 	t          interface{}
