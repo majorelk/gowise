@@ -199,9 +199,31 @@ func (a *Assert) reportStringError(got, want string, message string) {
 	// Choose appropriate diff function based on string characteristics
 	var result diff.DiffResult
 
-	// Use multi-line diff for strings containing newlines
+	// Use enhanced multi-line diff for strings containing newlines
 	if strings.Contains(got, "\n") || strings.Contains(want, "\n") {
-		result = diff.MultiLineStringDiff(got, want)
+		enhanced := diff.EnhancedMultiLineStringDiff(got, want, 2) // 2 lines context
+
+		var errorMsg strings.Builder
+		errorMsg.WriteString(message)
+		errorMsg.WriteString(fmt.Sprintf("\n  got:  %q", got))
+		errorMsg.WriteString(fmt.Sprintf("\n  want: %q", want))
+
+		if enhanced.HasDiff && enhanced.LineNumber != nil {
+			errorMsg.WriteString(fmt.Sprintf("\n  difference at line %d", *enhanced.LineNumber))
+		}
+
+		if enhanced.ContextLines != "" {
+			errorMsg.WriteString("\n  context:\n")
+			contextLines := strings.Split(enhanced.ContextLines, "\n")
+			for _, line := range contextLines {
+				if strings.TrimSpace(line) != "" {
+					errorMsg.WriteString("    " + line + "\n")
+				}
+			}
+		}
+
+		a.errorMsg = strings.TrimSuffix(errorMsg.String(), "\n")
+		return
 	} else if hasUnicodeChars(got) || hasUnicodeChars(want) {
 		// Use Unicode diff for strings with multi-byte characters
 		result = diff.UnicodeStringDiff(got, want)

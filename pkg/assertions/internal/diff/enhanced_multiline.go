@@ -7,10 +7,10 @@ import (
 
 // EnhancedDiffResult represents enhanced multi-line diff results with context and unified output
 type EnhancedDiffResult struct {
-	HasDiff       bool   // Whether the strings differ
-	LineNumber    *int   // Line number where strings first differ (1-indexed, nil if no difference)
-	ContextLines  string // Lines around the difference with context window
-	UnifiedDiff   string // Unified diff format output
+	HasDiff        bool   // Whether the strings differ
+	LineNumber     *int   // Line number where strings first differ (1-indexed, nil if no difference)
+	ContextLines   string // Lines around the difference with context window
+	UnifiedDiff    string // Unified diff format output
 	SideBySideDiff string // Side-by-side diff format output
 }
 
@@ -19,10 +19,10 @@ func EnhancedMultiLineStringDiff(got, want string, contextLines int) EnhancedDif
 	// Split into lines for comparison
 	gotLines := splitLines(got)
 	wantLines := splitLines(want)
-	
+
 	// Generate side-by-side diff format (always generated for consistency)
 	sideBySideDiff := generateSideBySideDiff(gotLines, wantLines)
-	
+
 	if got == want {
 		return EnhancedDiffResult{
 			HasDiff:        false,
@@ -196,21 +196,21 @@ func generateUnifiedDiff(gotLines, wantLines []string) string {
 // generateSideBySideDiff creates a side-by-side diff format output
 func generateSideBySideDiff(gotLines, wantLines []string) string {
 	var result strings.Builder
-	
+
 	// Headers
 	result.WriteString("Got                           | Want\n")
 	result.WriteString("------------------------------|------------------------------\n")
-	
+
 	// Calculate max lines to process
 	maxLines := len(gotLines)
 	if len(wantLines) > maxLines {
 		maxLines = len(wantLines)
 	}
-	
+
 	// Process each line
 	for i := 0; i < maxLines; i++ {
 		var gotLine, wantLine string
-		
+
 		// Get lines, using empty string if beyond array bounds
 		if i < len(gotLines) {
 			gotLine = strings.TrimSuffix(gotLines[i], "\n")
@@ -218,7 +218,7 @@ func generateSideBySideDiff(gotLines, wantLines []string) string {
 		if i < len(wantLines) {
 			wantLine = strings.TrimSuffix(wantLines[i], "\n")
 		}
-		
+
 		// Truncate lines if too long for display (keep first 29 chars)
 		if len(gotLine) > 29 {
 			gotLine = gotLine[:26] + "..."
@@ -226,10 +226,10 @@ func generateSideBySideDiff(gotLines, wantLines []string) string {
 		if len(wantLine) > 29 {
 			wantLine = wantLine[:26] + "..."
 		}
-		
+
 		// Format the line pair with proper alignment
 		result.WriteString(fmt.Sprintf("%-29s | %s\n", gotLine, wantLine))
 	}
-	
+
 	return strings.TrimSuffix(result.String(), "\n")
 }
