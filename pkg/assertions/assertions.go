@@ -35,6 +35,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"gowise/pkg/assertions/internal/diff"
 )
 
 // isComparable checks if two values can be compared with ==.
@@ -180,7 +182,71 @@ func (a *Assert) False(condition bool) {
 // reportError is a helper function to report test failures.
 // Uses lazy formatting and UK English.
 func (a *Assert) reportError(got, want interface{}, message string) {
+	// Check if both values are strings and use diff for better error messages
+	if gotStr, gotOK := got.(string); gotOK {
+		if wantStr, wantOK := want.(string); wantOK {
+			a.reportStringError(gotStr, wantStr, message)
+			return
+		}
+	}
+	
+	// Default error message for non-string types
 	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
+}
+
+// reportStringError provides enhanced error messages for string comparisons using diff infrastructure
+func (a *Assert) reportStringError(got, want string, message string) {
+	// Choose appropriate diff function based on string characteristics
+	var result diff.DiffResult
+	
+	// Use multi-line diff for strings containing newlines
+	if strings.Contains(got, "\n") || strings.Contains(want, "\n") {
+		result = diff.MultiLineStringDiff(got, want)
+	} else if hasUnicodeChars(got) || hasUnicodeChars(want) {
+		// Use Unicode diff for strings with multi-byte characters
+		result = diff.UnicodeStringDiff(got, want)
+	} else {
+		// Use context diff for better readability on longer strings
+		contextSize := 10
+		if len(got) > 50 || len(want) > 50 {
+			result = diff.StringDiffWithContext(got, want, contextSize)
+		} else {
+			result = diff.StringDiff(got, want)
+		}
+	}
+	
+	// Build enhanced error message
+	var errorMsg strings.Builder
+	errorMsg.WriteString(message)
+	errorMsg.WriteString("\n")
+	
+	if result.Summary != "" {
+		errorMsg.WriteString("  ")
+		errorMsg.WriteString(result.Summary)
+		errorMsg.WriteString("\n")
+	}
+	
+	if result.Context != "" {
+		errorMsg.WriteString("  diff: ")
+		errorMsg.WriteString(result.Context)
+		errorMsg.WriteString("\n")
+	}
+	
+	// Always show the full values for reference
+	errorMsg.WriteString(fmt.Sprintf("  got:  %q\n", got))
+	errorMsg.WriteString(fmt.Sprintf("  want: %q", want))
+	
+	a.errorMsg = errorMsg.String()
+}
+
+// hasUnicodeChars checks if a string contains non-ASCII characters
+func hasUnicodeChars(s string) bool {
+	for _, r := range s {
+		if r > 127 {
+			return true
+		}
+	}
+	return false
 }
 
 // Error returns the error message if the assertion failed.
