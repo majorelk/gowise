@@ -98,6 +98,11 @@ func StringDiffWithContext(got, want string, contextSize int) DiffResult {
 
 // generateContext creates a context window around the difference position.
 func generateContext(got, want string, pos, contextSize int) string {
+	// Handle edge case: negative context size
+	if contextSize < 0 {
+		contextSize = 0
+	}
+	
 	// For short strings, show the entire strings
 	totalLen := contextSize*2 + 1
 	if len(got) <= totalLen && len(want) <= totalLen {
