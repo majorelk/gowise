@@ -10,7 +10,7 @@ import (
 func TestStringDiffIntegration(t *testing.T) {
 	tests := []struct {
 		name                string
-		got, want          string
+		got, want           string
 		expectErrorContains []string // Parts that should be in error message
 	}{
 		{
@@ -26,7 +26,7 @@ func TestStringDiffIntegration(t *testing.T) {
 		{
 			name: "Unicode string difference",
 			got:  "Hello 🌍 World",
-			want: "Hello 🌎 World", 
+			want: "Hello 🌎 World",
 			expectErrorContains: []string{
 				"string values differ at rune position 6",
 				`got:  "Hello 🌍 World"`,
@@ -64,15 +64,15 @@ line 3`,
 			// Create a dummy testing.T that captures failures
 			dummyT := &capturingT{}
 			assert := New(dummyT)
-			
+
 			// This should fail and generate an error message
 			assert.Equal(tt.got, tt.want)
-			
+
 			errorMsg := assert.Error()
 			if errorMsg == "" {
 				t.Fatalf("Expected error message but got none")
 			}
-			
+
 			// Check that all expected parts are in the error message
 			for _, expected := range tt.expectErrorContains {
 				if !strings.Contains(errorMsg, expected) {
@@ -87,28 +87,28 @@ line 3`,
 func TestStringDiffVsNonString(t *testing.T) {
 	dummyT := &capturingT{}
 	assert := New(dummyT)
-	
+
 	// Test non-string types still get the old error format
 	assert.Equal(42, 24)
-	
+
 	errorMsg := assert.Error()
 	if errorMsg == "" {
 		t.Fatalf("Expected error message but got none")
 	}
-	
+
 	// Should contain the traditional format
 	expectedParts := []string{
 		"values differ",
 		"got:  42",
 		"want: 24",
 	}
-	
+
 	for _, expected := range expectedParts {
 		if !strings.Contains(errorMsg, expected) {
 			t.Errorf("Error message missing expected content %q\nFull error message:\n%s", expected, errorMsg)
 		}
 	}
-	
+
 	// Should NOT contain diff-specific content
 	if strings.Contains(errorMsg, "position") || strings.Contains(errorMsg, "diff:") {
 		t.Errorf("Non-string comparison should not use diff infrastructure, got: %s", errorMsg)
@@ -130,5 +130,6 @@ func (t *capturingT) Errorf(format string, args ...interface{}) {
 
 func (t *capturingT) Fatalf(format string, args ...interface{}) {
 	t.failed = true
-	// We don't actually log since our assertions use Error() method  
+	// We don't actually log since our assertions use Error() method
 }
+

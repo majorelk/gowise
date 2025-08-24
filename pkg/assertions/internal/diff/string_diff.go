@@ -102,7 +102,7 @@ func generateContext(got, want string, pos, contextSize int) string {
 	if contextSize < 0 {
 		contextSize = 0
 	}
-	
+
 	// For short strings, show the entire strings
 	totalLen := contextSize*2 + 1
 	if len(got) <= totalLen && len(want) <= totalLen {
@@ -271,4 +271,3 @@ func UnicodeStringDiff(got, want string) DiffResult {
 		LineNumber: nil,
 	}
 }
-

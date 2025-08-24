@@ -189,7 +189,7 @@ func (a *Assert) reportError(got, want interface{}, message string) {
 			return
 		}
 	}
-	
+
 	// Default error message for non-string types
 	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
 }
@@ -198,7 +198,7 @@ func (a *Assert) reportError(got, want interface{}, message string) {
 func (a *Assert) reportStringError(got, want string, message string) {
 	// Choose appropriate diff function based on string characteristics
 	var result diff.DiffResult
-	
+
 	// Use multi-line diff for strings containing newlines
 	if strings.Contains(got, "\n") || strings.Contains(want, "\n") {
 		result = diff.MultiLineStringDiff(got, want)
@@ -214,28 +214,28 @@ func (a *Assert) reportStringError(got, want string, message string) {
 			result = diff.StringDiff(got, want)
 		}
 	}
-	
+
 	// Build enhanced error message
 	var errorMsg strings.Builder
 	errorMsg.WriteString(message)
 	errorMsg.WriteString("\n")
-	
+
 	if result.Summary != "" {
 		errorMsg.WriteString("  ")
 		errorMsg.WriteString(result.Summary)
 		errorMsg.WriteString("\n")
 	}
-	
+
 	if result.Context != "" {
 		errorMsg.WriteString("  diff: ")
 		errorMsg.WriteString(result.Context)
 		errorMsg.WriteString("\n")
 	}
-	
+
 	// Always show the full values for reference
 	errorMsg.WriteString(fmt.Sprintf("  got:  %q\n", got))
 	errorMsg.WriteString(fmt.Sprintf("  want: %q", want))
-	
+
 	a.errorMsg = errorMsg.String()
 }
 

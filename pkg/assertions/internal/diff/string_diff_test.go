@@ -293,8 +293,8 @@ func TestUnicodeStringDiff(t *testing.T) {
 		},
 		{
 			name:       "combining characters",
-			got:        "é",          // single character
-			want:       "e\u0301",   // e + combining acute accent  
+			got:        "é",       // single character
+			want:       "e\u0301", // e + combining acute accent
 			expectDiff: true,
 			expectPos:  intPtr(1), // They differ at the second position (combining accent)
 		},
@@ -303,11 +303,11 @@ func TestUnicodeStringDiff(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := UnicodeStringDiff(tt.got, tt.want)
-			
+
 			if result.HasDiff != tt.expectDiff {
 				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
 			}
-			
+
 			if tt.expectDiff {
 				if result.Position == nil {
 					t.Errorf("Expected position for different strings")
@@ -330,4 +330,3 @@ func TestUnicodeStringDiff(t *testing.T) {
 func intPtr(i int) *int {
 	return &i
 }
-
