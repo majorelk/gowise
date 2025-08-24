@@ -83,7 +83,7 @@ line 3`,
 	}
 }
 
-// TestStringDiffVsNonString ensures we don't break existing behavior for non-string types
+// TestStringDiffVsNonString ensures we don't break existing behaviour for non-string types
 func TestStringDiffVsNonString(t *testing.T) {
 	dummyT := &capturingT{}
 	assert := New(dummyT)

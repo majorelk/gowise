@@ -5,20 +5,20 @@ import (
 	"testing"
 )
 
-// TestStringDiffEdgeCases tests comprehensive edge cases to ensure robust behavior
+// TestStringDiffEdgeCases tests comprehensive edge cases to ensure robust behaviour
 func TestStringDiffEdgeCases(t *testing.T) {
 	tests := []struct {
 		name          string
 		got, want     string
 		expectDiff    bool
-		checkBehavior func(t *testing.T, result DiffResult)
+		checkBehaviour func(t *testing.T, result DiffResult)
 	}{
 		{
 			name:       "both empty strings",
 			got:        "",
 			want:       "",
 			expectDiff: false,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position != nil {
 					t.Error("Expected nil position for identical empty strings")
 				}
@@ -29,7 +29,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        "",
 			want:       "text",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 0 {
 					t.Errorf("Expected position 0 for empty vs non-empty, got %v", result.Position)
 				}
@@ -40,7 +40,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        "text",
 			want:       "",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 0 {
 					t.Errorf("Expected position 0 for non-empty vs empty, got %v", result.Position)
 				}
@@ -51,7 +51,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        "hello world",
 			want:       "hello  world", // double space
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 6 {
 					t.Errorf("Expected position 6 for whitespace diff, got %v", result.Position)
 				}
@@ -62,7 +62,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        "hello",
 			want:       "hello ",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 5 {
 					t.Errorf("Expected position 5 for trailing whitespace, got %v", result.Position)
 				}
@@ -73,7 +73,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        " hello",
 			want:       "hello",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 0 {
 					t.Errorf("Expected position 0 for leading whitespace, got %v", result.Position)
 				}
@@ -84,7 +84,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        "hello\tworld",
 			want:       "hello world",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 5 {
 					t.Errorf("Expected position 5 for tab vs space, got %v", result.Position)
 				}
@@ -95,7 +95,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        "hello\x00world",
 			want:       "helloworld",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 5 {
 					t.Errorf("Expected position 5 for null byte, got %v", result.Position)
 				}
@@ -106,7 +106,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        strings.Repeat("a", 10000),
 			want:       strings.Repeat("a", 10000),
 			expectDiff: false,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.HasDiff {
 					t.Error("Expected no diff for identical long strings")
 				}
@@ -117,7 +117,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        strings.Repeat("a", 9999) + "b",
 			want:       strings.Repeat("a", 10000),
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 9999 {
 					t.Errorf("Expected position 9999 for diff at end, got %v", result.Position)
 				}
@@ -128,7 +128,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        "a",
 			want:       "b",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 0 {
 					t.Errorf("Expected position 0 for single char diff, got %v", result.Position)
 				}
@@ -139,7 +139,7 @@ func TestStringDiffEdgeCases(t *testing.T) {
 			got:        "x",
 			want:       "x",
 			expectDiff: false,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.HasDiff {
 					t.Error("Expected no diff for identical single chars")
 				}
@@ -155,9 +155,9 @@ func TestStringDiffEdgeCases(t *testing.T) {
 				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
 			}
 
-			// Run custom behavior checks
-			if tt.checkBehavior != nil {
-				tt.checkBehavior(t, result)
+			// Run custom behaviour checks
+			if tt.checkBehaviour != nil {
+				tt.checkBehaviour(t, result)
 			}
 		})
 	}
@@ -169,14 +169,14 @@ func TestMultiLineEdgeCases(t *testing.T) {
 		name          string
 		got, want     string
 		expectDiff    bool
-		checkBehavior func(t *testing.T, result DiffResult)
+		checkBehaviour func(t *testing.T, result DiffResult)
 	}{
 		{
 			name:       "mixed line endings - CRLF vs LF",
 			got:        "line1\r\nline2\r\nline3",
 			want:       "line1\nline2\nline3",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.LineNumber == nil || *result.LineNumber != 1 {
 					t.Errorf("Expected line number 1 for CRLF vs LF, got %v", result.LineNumber)
 				}
@@ -187,7 +187,7 @@ func TestMultiLineEdgeCases(t *testing.T) {
 			got:        "line1\nline2\nline3",
 			want:       "line1\rline2\rline3",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.LineNumber == nil || *result.LineNumber != 1 {
 					t.Errorf("Expected line number 1 for LF vs CR, got %v", result.LineNumber)
 				}
@@ -201,7 +201,7 @@ line2`,
 			want: `line1
 line2`,
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.LineNumber == nil || *result.LineNumber != 1 {
 					t.Errorf("Expected line number 1 for empty line at start, got %v", result.LineNumber)
 				}
@@ -215,7 +215,7 @@ line2
 			want: `line1
 line2`,
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				// The algorithm correctly detects difference at line 2 (trailing newline)
 				if result.LineNumber == nil || *result.LineNumber != 2 {
 					t.Errorf("Expected line number 2 for trailing newline diff, got %v", result.LineNumber)
@@ -235,7 +235,7 @@ line2`,
 
 `,
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if !result.HasDiff {
 					t.Error("Expected diff for different number of empty lines")
 				}
@@ -246,7 +246,7 @@ line2`,
 			got:        "hello\n",
 			want:       "hello",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if !result.HasDiff {
 					t.Error("Expected diff for line with vs without newline")
 				}
@@ -257,7 +257,7 @@ line2`,
 			got:        strings.Repeat("word ", 1000) + "\n",
 			want:       strings.Repeat("word ", 1000) + "\n",
 			expectDiff: false,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.HasDiff {
 					t.Error("Expected no diff for identical long lines")
 				}
@@ -268,7 +268,7 @@ line2`,
 			got:        strings.Repeat("x\n", 1000),
 			want:       strings.Repeat("x\n", 1000),
 			expectDiff: false,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.HasDiff {
 					t.Error("Expected no diff for identical many lines")
 				}
@@ -284,9 +284,9 @@ line2`,
 				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
 			}
 
-			// Run custom behavior checks
-			if tt.checkBehavior != nil {
-				tt.checkBehavior(t, result)
+			// Run custom behaviour checks
+			if tt.checkBehaviour != nil {
+				tt.checkBehaviour(t, result)
 			}
 		})
 	}
@@ -298,14 +298,14 @@ func TestUnicodeEdgeCases(t *testing.T) {
 		name          string
 		got, want     string
 		expectDiff    bool
-		checkBehavior func(t *testing.T, result DiffResult)
+		checkBehaviour func(t *testing.T, result DiffResult)
 	}{
 		{
 			name:       "combining diacritical marks",
 			got:        "café",       // single é character
 			want:       "cafe\u0301", // e + combining acute accent
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 3 {
 					t.Errorf("Expected position 3 for combining marks, got %v", result.Position)
 				}
@@ -316,7 +316,7 @@ func TestUnicodeEdgeCases(t *testing.T) {
 			got:        "hello\u200bworld", // zero-width space
 			want:       "helloworld",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 5 {
 					t.Errorf("Expected position 5 for zero-width char, got %v", result.Position)
 				}
@@ -327,7 +327,7 @@ func TestUnicodeEdgeCases(t *testing.T) {
 			got:        "hello שלום world",
 			want:       "hello שלום world",
 			expectDiff: false,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.HasDiff {
 					t.Error("Expected no diff for identical RTL text")
 				}
@@ -338,7 +338,7 @@ func TestUnicodeEdgeCases(t *testing.T) {
 			got:        "👍🏻", // thumbs up with light skin tone
 			want:       "👍",  // basic thumbs up
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Position == nil || *result.Position != 1 {
 					t.Errorf("Expected position 1 for emoji variation, got %v", result.Position)
 				}
@@ -349,7 +349,7 @@ func TestUnicodeEdgeCases(t *testing.T) {
 			got:        "Hello こんにちは мир 🌍",
 			want:       "Hello こんにちは мир 🌎",
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				// Should find difference at emoji position
 				if !result.HasDiff {
 					t.Error("Expected diff for mixed scripts with different emoji")
@@ -361,7 +361,7 @@ func TestUnicodeEdgeCases(t *testing.T) {
 			got:        "\u00e9",       // é as single character
 			want:       "\u0065\u0301", // e + combining accent
 			expectDiff: true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				// These are different at Unicode level even if visually identical
 				if !result.HasDiff {
 					t.Error("Expected diff for different normalization forms")
@@ -373,7 +373,7 @@ func TestUnicodeEdgeCases(t *testing.T) {
 			got:        "𝕳𝖊𝖑𝖑𝖔", // mathematical script letters
 			want:       "𝕳𝖊𝖑𝖑𝖔",
 			expectDiff: false,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.HasDiff {
 					t.Error("Expected no diff for identical surrogate pairs")
 				}
@@ -389,9 +389,9 @@ func TestUnicodeEdgeCases(t *testing.T) {
 				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
 			}
 
-			// Run custom behavior checks
-			if tt.checkBehavior != nil {
-				tt.checkBehavior(t, result)
+			// Run custom behaviour checks
+			if tt.checkBehaviour != nil {
+				tt.checkBehaviour(t, result)
 			}
 		})
 	}
@@ -404,7 +404,7 @@ func TestContextWindowEdgeCases(t *testing.T) {
 		got, want     string
 		contextSize   int
 		expectDiff    bool
-		checkBehavior func(t *testing.T, result DiffResult)
+		checkBehaviour func(t *testing.T, result DiffResult)
 	}{
 		{
 			name:        "zero context size",
@@ -412,7 +412,7 @@ func TestContextWindowEdgeCases(t *testing.T) {
 			want:        "hello World",
 			contextSize: 0,
 			expectDiff:  true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Context == "" {
 					t.Error("Expected some context even with size 0")
 				}
@@ -424,7 +424,7 @@ func TestContextWindowEdgeCases(t *testing.T) {
 			want:        "hello World",
 			contextSize: -5,
 			expectDiff:  true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				// Should handle gracefully, not panic
 				if !result.HasDiff {
 					t.Error("Expected diff despite negative context size")
@@ -437,7 +437,7 @@ func TestContextWindowEdgeCases(t *testing.T) {
 			want:        "Hi",
 			contextSize: 100,
 			expectDiff:  true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if result.Context != "hi vs Hi" {
 					t.Errorf("Expected full string context, got: %q", result.Context)
 				}
@@ -449,7 +449,7 @@ func TestContextWindowEdgeCases(t *testing.T) {
 			want:        "this is a long string ending with Y",
 			contextSize: 5,
 			expectDiff:  true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if !strings.Contains(result.Context, "X") || !strings.Contains(result.Context, "Y") {
 					t.Errorf("Expected context to show difference at end, got: %q", result.Context)
 				}
@@ -461,7 +461,7 @@ func TestContextWindowEdgeCases(t *testing.T) {
 			want:        "Y this is a long string",
 			contextSize: 5,
 			expectDiff:  true,
-			checkBehavior: func(t *testing.T, result DiffResult) {
+			checkBehaviour: func(t *testing.T, result DiffResult) {
 				if !strings.Contains(result.Context, "X") || !strings.Contains(result.Context, "Y") {
 					t.Errorf("Expected context to show difference at start, got: %q", result.Context)
 				}
@@ -481,9 +481,9 @@ func TestContextWindowEdgeCases(t *testing.T) {
 				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
 			}
 
-			// Run custom behavior checks
-			if tt.checkBehavior != nil {
-				tt.checkBehavior(t, result)
+			// Run custom behaviour checks
+			if tt.checkBehaviour != nil {
+				tt.checkBehaviour(t, result)
 			}
 		})
 	}
