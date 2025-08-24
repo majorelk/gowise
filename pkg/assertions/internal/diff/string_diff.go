@@ -4,10 +4,11 @@ import "fmt"
 
 // DiffResult represents the result of comparing two strings.
 type DiffResult struct {
-	HasDiff  bool   // Whether the strings differ
-	Summary  string // Human-readable summary of the difference
-	Position *int   // Position where strings first differ (nil if no difference)
-	Context  string // Context window around the difference
+	HasDiff    bool   // Whether the strings differ
+	Summary    string // Human-readable summary of the difference
+	Position   *int   // Position where strings first differ (nil if no difference)
+	Context    string // Context window around the difference
+	LineNumber *int   // Line number where multi-line strings first differ (nil if single-line or no difference)
 }
 
 // StringDiff compares two strings and returns a DiffResult indicating
@@ -15,9 +16,11 @@ type DiffResult struct {
 func StringDiff(got, want string) DiffResult {
 	if got == want {
 		return DiffResult{
-			HasDiff:  false,
-			Summary:  "",
-			Position: nil,
+			HasDiff:    false,
+			Summary:    "",
+			Position:   nil,
+			Context:    "",
+			LineNumber: nil,
 		}
 	}
 
@@ -41,10 +44,11 @@ func StringDiff(got, want string) DiffResult {
 	}
 
 	return DiffResult{
-		HasDiff:  true,
-		Summary:  fmt.Sprintf("string values differ at position %d", pos),
-		Position: &pos,
-		Context:  "",
+		HasDiff:    true,
+		Summary:    fmt.Sprintf("string values differ at position %d", pos),
+		Position:   &pos,
+		Context:    "",
+		LineNumber: nil,
 	}
 }
 
@@ -53,10 +57,11 @@ func StringDiff(got, want string) DiffResult {
 func StringDiffWithContext(got, want string, contextSize int) DiffResult {
 	if got == want {
 		return DiffResult{
-			HasDiff:  false,
-			Summary:  "",
-			Position: nil,
-			Context:  "",
+			HasDiff:    false,
+			Summary:    "",
+			Position:   nil,
+			Context:    "",
+			LineNumber: nil,
 		}
 	}
 
@@ -83,10 +88,11 @@ func StringDiffWithContext(got, want string, contextSize int) DiffResult {
 	contextStr := generateContext(got, want, pos, contextSize)
 
 	return DiffResult{
-		HasDiff:  true,
-		Summary:  fmt.Sprintf("string values differ at position %d", pos),
-		Position: &pos,
-		Context:  contextStr,
+		HasDiff:    true,
+		Summary:    fmt.Sprintf("string values differ at position %d", pos),
+		Position:   &pos,
+		Context:    contextStr,
+		LineNumber: nil,
 	}
 }
 
@@ -132,4 +138,86 @@ func generateContext(got, want string, pos, contextSize int) string {
 	}
 
 	return fmt.Sprintf("%s vs %s", gotContext, wantContext)
+}
+
+// MultiLineStringDiff compares multi-line strings and returns a DiffResult
+// with line number information for the first differing line.
+func MultiLineStringDiff(got, want string) DiffResult {
+	if got == want {
+		return DiffResult{
+			HasDiff:    false,
+			Summary:    "",
+			Position:   nil,
+			Context:    "",
+			LineNumber: nil,
+		}
+	}
+
+	// Split into lines for comparison
+	gotLines := splitLines(got)
+	wantLines := splitLines(want)
+
+	// Find first differing line
+	minLines := len(gotLines)
+	if len(wantLines) < minLines {
+		minLines = len(wantLines)
+	}
+
+	lineNum := 0
+	for i := 0; i < minLines; i++ {
+		if gotLines[i] != wantLines[i] {
+			lineNum = i + 1 // 1-indexed line numbers
+			break
+		}
+	}
+
+	// If all lines match but lengths differ
+	if lineNum == 0 && len(gotLines) != len(wantLines) {
+		lineNum = minLines + 1
+	}
+
+	var summary string
+	if len(gotLines) != len(wantLines) {
+		summary = fmt.Sprintf("strings differ in length: got %d lines, want %d lines", len(gotLines), len(wantLines))
+	} else {
+		summary = fmt.Sprintf("strings differ at line %d", lineNum)
+	}
+
+	// Calculate character position for the differing line
+	pos := 0
+	for i := 0; i < lineNum-1 && i < len(gotLines); i++ {
+		pos += len(gotLines[i]) + 1 // +1 for newline character
+	}
+
+	return DiffResult{
+		HasDiff:    true,
+		Summary:    summary,
+		Position:   &pos,
+		Context:    "",
+		LineNumber: &lineNum,
+	}
+}
+
+// splitLines splits a string into lines, preserving line endings.
+func splitLines(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+
+	var lines []string
+	start := 0
+	
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			lines = append(lines, s[start:i+1])
+			start = i + 1
+		}
+	}
+	
+	// Add remaining content if it doesn't end with newline
+	if start < len(s) {
+		lines = append(lines, s[start:])
+	}
+	
+	return lines
 }

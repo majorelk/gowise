@@ -176,6 +176,85 @@ func TestStringDiffWithContext(t *testing.T) {
 	}
 }
 
+// TestMultiLineStringDiff tests diff functionality for multi-line strings.
+func TestMultiLineStringDiff(t *testing.T) {
+	tests := []struct {
+		name       string
+		got, want  string
+		expectDiff bool
+	}{
+		{
+			name: "identical multi-line strings",
+			got: `line 1
+line 2
+line 3`,
+			want: `line 1
+line 2
+line 3`,
+			expectDiff: false,
+		},
+		{
+			name: "different line content",
+			got: `line 1
+line 2 modified
+line 3`,
+			want: `line 1
+line 2
+line 3`,
+			expectDiff: true,
+		},
+		{
+			name: "extra line at end",
+			got: `line 1
+line 2
+line 3
+line 4`,
+			want: `line 1
+line 2
+line 3`,
+			expectDiff: true,
+		},
+		{
+			name: "missing line",
+			got: `line 1
+line 3`,
+			want: `line 1
+line 2
+line 3`,
+			expectDiff: true,
+		},
+		{
+			name: "different line endings",
+			got:  "line 1\nline 2\n",
+			want: "line 1\r\nline 2\r\n",
+			expectDiff: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := MultiLineStringDiff(tt.got, tt.want)
+			
+			if result.HasDiff != tt.expectDiff {
+				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
+			}
+			
+			if tt.expectDiff {
+				if result.LineNumber == nil {
+					t.Errorf("Expected line number for different multi-line strings")
+				}
+				if result.Summary == "" {
+					t.Errorf("Expected non-empty summary for different multi-line strings")
+				}
+			} else {
+				if result.LineNumber != nil {
+					t.Errorf("Expected nil line number for identical strings")
+				}
+			}
+		})
+	}
+}
+
 // Helper function for test readability
 func intPtr(i int) *int {
 	return &i
