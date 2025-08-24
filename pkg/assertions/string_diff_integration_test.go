@@ -191,6 +191,161 @@ line 2`,
 	}
 }
 
+// TestComplexMultiLineDiffFormats tests format selection for complex vs simple diffs
+func TestComplexMultiLineDiffFormats(t *testing.T) {
+	tests := []struct {
+		name                string
+		got, want           string
+		expectFormatType    string // "context" or "unified diff"
+		expectErrorContains []string
+	}{
+		{
+			name: "simple diff uses context format",
+			got: `line 1
+line 2 original
+line 3`,
+			want: `line 1
+line 2 changed
+line 3`,
+			expectFormatType: "context",
+			expectErrorContains: []string{
+				"context:",
+				"- line 2 original",
+				"+ line 2 changed",
+			},
+		},
+		{
+			name: "complex diff uses unified format",
+			got: `line 1 original
+line 2 original
+line 3 original
+line 4 original
+line 5 original
+line 6 original
+line 7 original
+line 8 original`,
+			want: `line 1 changed
+line 2 changed
+line 3 changed
+line 4 changed
+line 5 changed
+line 6 changed
+line 7 changed
+line 8 changed`,
+			expectFormatType: "unified diff",
+			expectErrorContains: []string{
+				"unified diff:",
+				"@@",
+				"--- got",
+				"+++ want",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dummyT := &capturingT{}
+			assert := New(dummyT)
+
+			assert.Equal(tt.got, tt.want)
+
+			errorMsg := assert.Error()
+			if errorMsg == "" {
+				t.Fatalf("Expected error message but got none")
+			}
+
+			// Check format type is used
+			if !strings.Contains(errorMsg, tt.expectFormatType) {
+				t.Errorf("Expected %s format but didn't find it in: %s", tt.expectFormatType, errorMsg)
+			}
+
+			// Check expected content
+			for _, expected := range tt.expectErrorContains {
+				if !strings.Contains(errorMsg, expected) {
+					t.Errorf("Error message missing expected content %q\nFull error message:\n%s", expected, errorMsg)
+				}
+			}
+		})
+	}
+}
+
+// TestDiffFormatConfiguration tests configurable diff format options
+func TestDiffFormatConfiguration(t *testing.T) {
+	multiLineText := `line 1
+line 2 original
+line 3
+line 4`
+	changedText := `line 1
+line 2 changed
+line 3
+line 4`
+
+	tests := []struct {
+		name               string
+		diffFormat         DiffFormat
+		expectFormatType   string
+		expectErrorContent []string
+	}{
+		{
+			name:             "auto format selection",
+			diffFormat:       DiffFormatAuto,
+			expectFormatType: "context", // Simple diff should use context
+			expectErrorContent: []string{
+				"context:",
+				"- line 2 original",
+				"+ line 2 changed",
+			},
+		},
+		{
+			name:             "force context format",
+			diffFormat:       DiffFormatContext,
+			expectFormatType: "context",
+			expectErrorContent: []string{
+				"context:",
+				"- line 2 original",
+				"+ line 2 changed",
+			},
+		},
+		{
+			name:             "force unified format",
+			diffFormat:       DiffFormatUnified,
+			expectFormatType: "unified diff",
+			expectErrorContent: []string{
+				"unified diff:",
+				"@@",
+				"--- got",
+				"+++ want",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dummyT := &capturingT{}
+			assert := New(dummyT).WithDiffFormat(tt.diffFormat)
+
+			assert.Equal(multiLineText, changedText)
+
+			errorMsg := assert.Error()
+			if errorMsg == "" {
+				t.Fatalf("Expected error message but got none")
+			}
+
+			// Check format type is used
+			if !strings.Contains(errorMsg, tt.expectFormatType) {
+				t.Errorf("Expected %s format but didn't find it in: %s", tt.expectFormatType, errorMsg)
+			}
+
+			// Check expected content
+			for _, expected := range tt.expectErrorContent {
+				if !strings.Contains(errorMsg, expected) {
+					t.Errorf("Error message missing expected content %q\nFull error message:\n%s", expected, errorMsg)
+				}
+			}
+		})
+	}
+}
+
 // capturingT is a minimal testing.T implementation for testing our assertions
 type capturingT struct {
 	failed bool

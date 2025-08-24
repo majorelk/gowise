@@ -57,15 +57,43 @@ func isComparable(a, b interface{}) bool {
 	return va.Type().Comparable()
 }
 
+// DiffFormat specifies the preferred format for multi-line string diffs
+type DiffFormat int
+
+const (
+	// DiffFormatAuto automatically selects the best format based on content complexity
+	DiffFormatAuto DiffFormat = iota
+	// DiffFormatContext shows context lines with +/- indicators
+	DiffFormatContext
+	// DiffFormatUnified shows unified diff format with @@ headers
+	DiffFormatUnified
+	// DiffFormatSideBySide shows side-by-side comparison (not yet implemented in error messages)
+	DiffFormatSideBySide
+)
+
 // Assert is a struct that holds the testing context and error message.
 type Assert struct {
-	t        interface{}
-	errorMsg string
+	t          interface{}
+	errorMsg   string
+	diffFormat DiffFormat // Preferred format for multi-line string diffs
 }
 
 // New creates a new Assert instance with the given testing context.
 func New(t interface{}) *Assert {
-	return &Assert{t: t}
+	return &Assert{
+		t:          t,
+		diffFormat: DiffFormatAuto, // Default to automatic format selection
+	}
+}
+
+// WithDiffFormat returns a new Assert instance with the specified diff format preference.
+// This follows GoWise principles of immutable configuration.
+func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
+	return &Assert{
+		t:          a.t,
+		errorMsg:   a.errorMsg,
+		diffFormat: format,
+	}
 }
 
 // Equal asserts that two values are equal.
@@ -201,7 +229,12 @@ func (a *Assert) reportStringError(got, want string, message string) {
 
 	// Use enhanced multi-line diff for strings containing newlines
 	if strings.Contains(got, "\n") || strings.Contains(want, "\n") {
-		enhanced := diff.EnhancedMultiLineStringDiff(got, want, 2) // 2 lines context
+		// Use more context for complex diffs
+		contextLines := 3
+		if len(strings.Split(got, "\n")) > 10 || len(strings.Split(want, "\n")) > 10 {
+			contextLines = 5
+		}
+		enhanced := diff.EnhancedMultiLineStringDiff(got, want, contextLines)
 
 		var errorMsg strings.Builder
 		errorMsg.WriteString(message)
@@ -212,12 +245,43 @@ func (a *Assert) reportStringError(got, want string, message string) {
 			errorMsg.WriteString(fmt.Sprintf("\n  difference at line %d", *enhanced.LineNumber))
 		}
 
+		// Choose diff format based on configuration and content complexity
 		if enhanced.ContextLines != "" {
-			errorMsg.WriteString("\n  context:\n")
 			contextLines := strings.Split(enhanced.ContextLines, "\n")
-			for _, line := range contextLines {
-				if strings.TrimSpace(line) != "" {
-					errorMsg.WriteString("    " + line + "\n")
+
+			// Determine which format to use
+			var useUnified bool
+			switch a.diffFormat {
+			case DiffFormatUnified:
+				useUnified = true
+			case DiffFormatContext:
+				useUnified = false
+			case DiffFormatAuto:
+				// Count number of differing lines for automatic selection
+				diffLineCount := 0
+				for _, line := range contextLines {
+					if strings.HasPrefix(strings.TrimSpace(line), "+") || strings.HasPrefix(strings.TrimSpace(line), "-") {
+						diffLineCount++
+					}
+				}
+				useUnified = diffLineCount > 4
+			}
+
+			if useUnified && enhanced.UnifiedDiff != "" {
+				errorMsg.WriteString("\n  unified diff:\n")
+				unifiedLines := strings.Split(enhanced.UnifiedDiff, "\n")
+				for _, line := range unifiedLines {
+					if strings.TrimSpace(line) != "" {
+						errorMsg.WriteString("    " + line + "\n")
+					}
+				}
+			} else {
+				// Use context format
+				errorMsg.WriteString("\n  context:\n")
+				for _, line := range contextLines {
+					if strings.TrimSpace(line) != "" {
+						errorMsg.WriteString("    " + line + "\n")
+					}
 				}
 			}
 		}
@@ -619,10 +683,39 @@ func (a *Assert) HttpStatus(response *http.Response, expected int) {
 
 // JsonEqual asserts that a JSON string is equivalent to another JSON string or object.
 func (a *Assert) JsonEqual(expected, actual string) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// First check if JSON strings are identical (fast path)
+	if expected == actual {
+		return
+	}
+
+	// Parse both JSON strings
 	var obj1, obj2 interface{}
-	json.Unmarshal([]byte(expected), &obj1)
-	json.Unmarshal([]byte(actual), &obj2)
-	a.Equal(obj1, obj2)
+	err1 := json.Unmarshal([]byte(expected), &obj1)
+	err2 := json.Unmarshal([]byte(actual), &obj2)
+
+	// Handle parse errors
+	if err1 != nil && err2 != nil {
+		a.reportStringError(actual, expected, "both JSON strings are invalid")
+		return
+	}
+	if err1 != nil {
+		a.reportError(actual, expected, "expected JSON is invalid: "+err1.Error())
+		return
+	}
+	if err2 != nil {
+		a.reportError(actual, expected, "actual JSON is invalid: "+err2.Error())
+		return
+	}
+
+	// Compare parsed objects
+	if !reflect.DeepEqual(obj1, obj2) {
+		// Objects differ - provide enhanced JSON string comparison
+		a.reportStringError(actual, expected, "JSON objects differ")
+	}
 }
 
 // HasHeader asserts that a HTTP response has a certain header.
@@ -685,10 +778,38 @@ func (a *Assert) IsServerError(response *http.Response) {
 
 // BodyJsonEqual asserts that a HTTP response body is equivalent to a given JSON object.
 func (a *Assert) BodyJsonEqual(response *http.Response, expected interface{}) {
-	body, _ := ioutil.ReadAll(response.Body)
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		a.reportError(nil, expected, "failed to read response body: "+err.Error())
+		return
+	}
+
+	// Parse actual JSON from response body
 	var actual interface{}
-	json.Unmarshal(body, &actual)
-	a.Equal(expected, actual)
+	if err := json.Unmarshal(body, &actual); err != nil {
+		// JSON parsing failed - show the raw body with enhanced diff if expected is string
+		if expectedStr, ok := expected.(string); ok {
+			a.reportStringError(string(body), expectedStr, "response body is not valid JSON: "+err.Error())
+		} else {
+			a.reportError(string(body), expected, "response body is not valid JSON: "+err.Error())
+		}
+		return
+	}
+
+	// Compare parsed objects
+	if !reflect.DeepEqual(actual, expected) {
+		// If expected is a string (JSON), show enhanced string comparison of raw JSON
+		if expectedStr, ok := expected.(string); ok {
+			a.reportStringError(string(body), expectedStr, "response JSON differs from expected")
+		} else {
+			// Expected is an object, use standard comparison
+			a.reportError(actual, expected, "response JSON differs from expected object")
+		}
+	}
 }
 
 // HasCookie asserts that a HTTP response has a certain cookie.

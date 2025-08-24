@@ -16,14 +16,12 @@ type EnhancedDiffResult struct {
 
 // EnhancedMultiLineStringDiff compares multi-line strings with enhanced context and formatting
 func EnhancedMultiLineStringDiff(got, want string, contextLines int) EnhancedDiffResult {
-	// Split into lines for comparison
-	gotLines := splitLines(got)
-	wantLines := splitLines(want)
-
-	// Generate side-by-side diff format (always generated for consistency)
-	sideBySideDiff := generateSideBySideDiff(gotLines, wantLines)
-
+	// Fast path: identical strings (avoids expensive line splitting)
 	if got == want {
+		// Still generate side-by-side for consistency, but with minimal work
+		gotLines := splitLines(got)
+		sideBySideDiff := generateSideBySideDiff(gotLines, gotLines) // Same lines for both sides
+
 		return EnhancedDiffResult{
 			HasDiff:        false,
 			LineNumber:     nil,
@@ -32,6 +30,44 @@ func EnhancedMultiLineStringDiff(got, want string, contextLines int) EnhancedDif
 			SideBySideDiff: sideBySideDiff,
 		}
 	}
+
+	// Performance optimization: limit processing for very large strings
+	const maxStringLength = 50000 // 50KB limit for enhanced processing
+	if len(got) > maxStringLength || len(want) > maxStringLength {
+		// Fall back to simpler diff for very large strings
+		return EnhancedDiffResult{
+			HasDiff:        true,
+			LineNumber:     nil, // Skip line detection for performance
+			ContextLines:   "Diff too large to display context (strings exceed 50KB)",
+			UnifiedDiff:    "",
+			SideBySideDiff: "Diff too large for side-by-side display",
+		}
+	}
+
+	// Split into lines for comparison (only when strings differ)
+	gotLines := splitLines(got)
+	wantLines := splitLines(want)
+
+	// Performance optimization: limit line processing
+	const maxLines = 1000
+	if len(gotLines) > maxLines || len(wantLines) > maxLines {
+		// Process only first part for very long files
+		limitedGotLines := gotLines
+		limitedWantLines := wantLines
+		if len(gotLines) > maxLines {
+			limitedGotLines = gotLines[:maxLines]
+		}
+		if len(wantLines) > maxLines {
+			limitedWantLines = wantLines[:maxLines]
+		}
+
+		result := processLimitedLines(limitedGotLines, limitedWantLines, contextLines)
+		result.ContextLines += "\n... (truncated: files too large for full diff)"
+		return result
+	}
+
+	// Generate side-by-side diff format
+	sideBySideDiff := generateSideBySideDiff(gotLines, wantLines)
 
 	// Find first differing line
 	minLines := len(gotLines)
@@ -232,4 +268,43 @@ func generateSideBySideDiff(gotLines, wantLines []string) string {
 	}
 
 	return strings.TrimSuffix(result.String(), "\n")
+}
+
+// processLimitedLines processes a limited number of lines for performance
+func processLimitedLines(gotLines, wantLines []string, contextLines int) EnhancedDiffResult {
+	// Find first differing line
+	minLines := len(gotLines)
+	if len(wantLines) < minLines {
+		minLines = len(wantLines)
+	}
+
+	lineNum := 0
+	for i := 0; i < minLines; i++ {
+		if gotLines[i] != wantLines[i] {
+			lineNum = i + 1 // 1-indexed line numbers
+			break
+		}
+	}
+
+	// If all lines match but lengths differ
+	if lineNum == 0 && len(gotLines) != len(wantLines) {
+		lineNum = minLines + 1
+	}
+
+	// Generate context window around the difference
+	contextStr := generateContextWindow(gotLines, wantLines, lineNum-1, contextLines)
+
+	// Generate unified diff format
+	unifiedDiff := generateUnifiedDiff(gotLines, wantLines)
+
+	// Generate side-by-side diff format
+	sideBySideDiff := generateSideBySideDiff(gotLines, wantLines)
+
+	return EnhancedDiffResult{
+		HasDiff:        true,
+		LineNumber:     &lineNum,
+		ContextLines:   contextStr,
+		UnifiedDiff:    unifiedDiff,
+		SideBySideDiff: sideBySideDiff,
+	}
 }
