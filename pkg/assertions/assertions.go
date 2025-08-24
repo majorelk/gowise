@@ -1,15 +1,26 @@
-// Package assertions provides assertion functions for testing.
+// Package assertions provides fast, ergonomic assertion functions for testing.
 //
-// Assertions is a utility package that offers functions to perform common
-// assertion checks in tests.
+// GoWise assertions offer performance-optimised equality checking, comprehensive
+// nil handling, and type-safe collection operations while maintaining zero
+// external dependencies.
 //
-// Example:
+// Core Features:
+//   - Fast-path optimisation for comparable types (avoids reflection when possible)
+//   - Comprehensive nil checking for all 6 nillable Go types
+//   - Type-safe collection operations (Contains, Len)
+//   - Clear, actionable error messages in UK English
+//   - Proper t.Helper() integration for accurate test stack traces
+//
+// Example usage:
 //
 //	assert := assertions.New(t)
-//	assert.True(true)
-//	if assert.Error() != "" {
-//	    t.Errorf("Expected no error, but got: %s", assert.Error())
-//	}
+//	assert.Equal(got, want)        // Fast-path for comparable types, deep equality fallback
+//	assert.Contains(slice, item)   // Works with slices, maps, strings
+//	assert.Nil(err)               // Handles interface nil gotcha correctly
+//	assert.True(condition)        // Clear boolean assertions
+//
+// All assertions are designed for minimal allocation and maximum clarity,
+// following Go's stdlib-only philosophy.
 package assertions
 
 import (
@@ -24,6 +35,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"gowise/pkg/assertions/internal/diff"
 )
 
 // isComparable checks if two values can be compared with ==.
@@ -169,7 +182,71 @@ func (a *Assert) False(condition bool) {
 // reportError is a helper function to report test failures.
 // Uses lazy formatting and UK English.
 func (a *Assert) reportError(got, want interface{}, message string) {
+	// Check if both values are strings and use diff for better error messages
+	if gotStr, gotOK := got.(string); gotOK {
+		if wantStr, wantOK := want.(string); wantOK {
+			a.reportStringError(gotStr, wantStr, message)
+			return
+		}
+	}
+
+	// Default error message for non-string types
 	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
+}
+
+// reportStringError provides enhanced error messages for string comparisons using diff infrastructure
+func (a *Assert) reportStringError(got, want string, message string) {
+	// Choose appropriate diff function based on string characteristics
+	var result diff.DiffResult
+
+	// Use multi-line diff for strings containing newlines
+	if strings.Contains(got, "\n") || strings.Contains(want, "\n") {
+		result = diff.MultiLineStringDiff(got, want)
+	} else if hasUnicodeChars(got) || hasUnicodeChars(want) {
+		// Use Unicode diff for strings with multi-byte characters
+		result = diff.UnicodeStringDiff(got, want)
+	} else {
+		// Use context diff for better readability on longer strings
+		contextSize := 10
+		if len(got) > 50 || len(want) > 50 {
+			result = diff.StringDiffWithContext(got, want, contextSize)
+		} else {
+			result = diff.StringDiff(got, want)
+		}
+	}
+
+	// Build enhanced error message
+	var errorMsg strings.Builder
+	errorMsg.WriteString(message)
+	errorMsg.WriteString("\n")
+
+	if result.Summary != "" {
+		errorMsg.WriteString("  ")
+		errorMsg.WriteString(result.Summary)
+		errorMsg.WriteString("\n")
+	}
+
+	if result.Context != "" {
+		errorMsg.WriteString("  diff: ")
+		errorMsg.WriteString(result.Context)
+		errorMsg.WriteString("\n")
+	}
+
+	// Always show the full values for reference
+	errorMsg.WriteString(fmt.Sprintf("  got:  %q\n", got))
+	errorMsg.WriteString(fmt.Sprintf("  want: %q", want))
+
+	a.errorMsg = errorMsg.String()
+}
+
+// hasUnicodeChars checks if a string contains non-ASCII characters
+func hasUnicodeChars(s string) bool {
+	for _, r := range s {
+		if r > 127 {
+			return true
+		}
+	}
+	return false
 }
 
 // Error returns the error message if the assertion failed.
