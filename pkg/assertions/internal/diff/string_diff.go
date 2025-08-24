@@ -206,18 +206,19 @@ func splitLines(s string) []string {
 
 	var lines []string
 	start := 0
-	
+
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\n' {
 			lines = append(lines, s[start:i+1])
 			start = i + 1
 		}
 	}
-	
+
 	// Add remaining content if it doesn't end with newline
 	if start < len(s) {
 		lines = append(lines, s[start:])
 	}
-	
+
 	return lines
 }
+

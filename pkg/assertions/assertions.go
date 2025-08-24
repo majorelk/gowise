@@ -7,7 +7,7 @@
 // Core Features:
 //   - Fast-path optimisation for comparable types (avoids reflection when possible)
 //   - Comprehensive nil checking for all 6 nillable Go types
-//   - Type-safe collection operations (Contains, Len) 
+//   - Type-safe collection operations (Contains, Len)
 //   - Clear, actionable error messages in UK English
 //   - Proper t.Helper() integration for accurate test stack traces
 //

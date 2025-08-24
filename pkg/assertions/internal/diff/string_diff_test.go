@@ -8,31 +8,31 @@ import (
 func TestDiffResult(t *testing.T) {
 	t.Run("no difference", func(t *testing.T) {
 		result := StringDiff("hello", "hello")
-		
+
 		if result.HasDiff {
 			t.Errorf("Expected no difference for identical strings")
 		}
-		
+
 		if result.Summary != "" {
 			t.Errorf("Expected empty summary for identical strings, got: %q", result.Summary)
 		}
-		
+
 		if result.Position != nil {
 			t.Errorf("Expected nil position for identical strings, got: %d", *result.Position)
 		}
 	})
-	
+
 	t.Run("simple difference", func(t *testing.T) {
 		result := StringDiff("hello", "world")
-		
+
 		if !result.HasDiff {
 			t.Errorf("Expected difference for different strings")
 		}
-		
+
 		if result.Summary == "" {
 			t.Errorf("Expected non-empty summary for different strings")
 		}
-		
+
 		if result.Position == nil {
 			t.Errorf("Expected position for different strings")
 		} else if *result.Position != 0 {
@@ -47,43 +47,43 @@ func TestStringDiffBasic(t *testing.T) {
 		name            string
 		got, want       string
 		expectDiff      bool
-		expectedPos     *int  // nil if no diff expected
+		expectedPos     *int // nil if no diff expected
 		expectedSummary string
 	}{
 		{
-			name:       "identical strings",
-			got:        "hello",
-			want:       "hello", 
-			expectDiff: false,
-			expectedPos: nil,
+			name:            "identical strings",
+			got:             "hello",
+			want:            "hello",
+			expectDiff:      false,
+			expectedPos:     nil,
 			expectedSummary: "",
 		},
 		{
-			name:       "different at start",
-			got:        "Hello",
-			want:       "hello",
-			expectDiff: true,
-			expectedPos: intPtr(0),
+			name:            "different at start",
+			got:             "Hello",
+			want:            "hello",
+			expectDiff:      true,
+			expectedPos:     intPtr(0),
 			expectedSummary: "string values differ at position 0",
 		},
 		{
-			name:       "different in middle",
-			got:        "hello world",
-			want:       "hello World",
-			expectDiff: true,
-			expectedPos: intPtr(6),
+			name:            "different in middle",
+			got:             "hello world",
+			want:            "hello World",
+			expectDiff:      true,
+			expectedPos:     intPtr(6),
 			expectedSummary: "string values differ at position 6",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := StringDiff(tt.got, tt.want)
-			
+
 			if result.HasDiff != tt.expectDiff {
 				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
 			}
-			
+
 			if tt.expectedPos == nil && result.Position != nil {
 				t.Errorf("Expected nil position, got %d", *result.Position)
 			} else if tt.expectedPos != nil {
@@ -93,7 +93,7 @@ func TestStringDiffBasic(t *testing.T) {
 					t.Errorf("Position = %d, want %d", *result.Position, *tt.expectedPos)
 				}
 			}
-			
+
 			if result.Summary != tt.expectedSummary {
 				t.Errorf("Summary = %q, want %q", result.Summary, tt.expectedSummary)
 			}
@@ -112,7 +112,7 @@ func TestStringDiffWithContext(t *testing.T) {
 		{
 			name:        "short strings no context needed",
 			got:         "abc",
-			want:        "abd", 
+			want:        "abd",
 			contextSize: 5,
 			expectDiff:  true,
 		},
@@ -149,11 +149,11 @@ func TestStringDiffWithContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := StringDiffWithContext(tt.got, tt.want, tt.contextSize)
-			
+
 			if result.HasDiff != tt.expectDiff {
 				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
 			}
-			
+
 			if tt.expectDiff {
 				if result.Position == nil {
 					t.Errorf("Expected position for different strings")
@@ -224,9 +224,9 @@ line 3`,
 			expectDiff: true,
 		},
 		{
-			name: "different line endings",
-			got:  "line 1\nline 2\n",
-			want: "line 1\r\nline 2\r\n",
+			name:       "different line endings",
+			got:        "line 1\nline 2\n",
+			want:       "line 1\r\nline 2\r\n",
 			expectDiff: true,
 		},
 	}
@@ -234,11 +234,11 @@ line 3`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := MultiLineStringDiff(tt.got, tt.want)
-			
+
 			if result.HasDiff != tt.expectDiff {
 				t.Errorf("HasDiff = %v, want %v", result.HasDiff, tt.expectDiff)
 			}
-			
+
 			if tt.expectDiff {
 				if result.LineNumber == nil {
 					t.Errorf("Expected line number for different multi-line strings")
@@ -259,3 +259,4 @@ line 3`,
 func intPtr(i int) *int {
 	return &i
 }
+
