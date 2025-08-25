@@ -222,6 +222,19 @@ func (a *Assert) reportError(got, want interface{}, message string) {
 	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
 }
 
+// reportCollectionError provides enhanced error messages for collection comparisons using diff infrastructure
+func (a *Assert) reportCollectionError(result diff.CollectionDiffResult) {
+	var errorMsg strings.Builder
+	errorMsg.WriteString(result.Summary)
+	
+	if result.Detail != "" {
+		errorMsg.WriteString("\n  ")
+		errorMsg.WriteString(strings.ReplaceAll(result.Detail, "\n", "\n  "))
+	}
+
+	a.errorMsg = errorMsg.String()
+}
+
 // reportStringError provides enhanced error messages for string comparisons using diff infrastructure
 func (a *Assert) reportStringError(got, want string, message string) {
 	// Choose appropriate diff function based on string characteristics
