@@ -223,6 +223,19 @@ func (a *Assert) reportError(got, want interface{}, message string) {
 	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
 }
 
+// reportCollectionError provides enhanced error messages for collection comparisons using diff infrastructure
+func (a *Assert) reportCollectionError(result diff.CollectionDiffResult) {
+	var errorMsg strings.Builder
+	errorMsg.WriteString(result.Summary)
+
+	if result.Detail != "" {
+		errorMsg.WriteString("\n  ")
+		errorMsg.WriteString(strings.ReplaceAll(result.Detail, "\n", "\n  "))
+	}
+
+	a.errorMsg = errorMsg.String()
+}
+
 // reportStringError provides enhanced error messages for string comparisons using diff infrastructure
 func (a *Assert) reportStringError(got, want string, message string) {
 	// Choose appropriate diff function based on string characteristics
@@ -393,53 +406,10 @@ func (a *Assert) Contains(container, item interface{}) {
 		t.Helper()
 	}
 
-	if container == nil {
-		a.reportError(item, nil, "cannot check containment in nil container")
-		return
+	result := diff.CollectionContainsDiff(container, item)
+	if result.HasDiff {
+		a.reportCollectionError(result)
 	}
-
-	containerValue := reflect.ValueOf(container)
-	containerType := containerValue.Type()
-
-	switch containerType.Kind() {
-	case reflect.String:
-		// String contains substring
-		containerStr := container.(string)
-		itemStr, ok := item.(string)
-		if !ok {
-			a.reportError(item, "string", "item must be string for string containers")
-			return
-		}
-		if strings.Contains(containerStr, itemStr) {
-			return
-		}
-
-	case reflect.Slice, reflect.Array:
-		// Check if slice/array contains element
-		for i := 0; i < containerValue.Len(); i++ {
-			if reflect.DeepEqual(containerValue.Index(i).Interface(), item) {
-				return
-			}
-		}
-
-	case reflect.Map:
-		// Check if map contains key
-		itemValue := reflect.ValueOf(item)
-		if !itemValue.Type().AssignableTo(containerType.Key()) {
-			a.reportError(item, containerType.Key(), "item type does not match map key type")
-			return
-		}
-		mapValue := containerValue.MapIndex(itemValue)
-		if mapValue.IsValid() {
-			return
-		}
-
-	default:
-		a.reportError(container, "slice, array, map, or string", "container must be slice, array, map, or string")
-		return
-	}
-
-	a.reportError(item, container, "expected container to contain item")
 }
 
 // Greater asserts that the first value is greater than the second.
@@ -629,22 +599,9 @@ func (a *Assert) Len(container interface{}, expectedLen int) {
 		t.Helper()
 	}
 
-	if container == nil {
-		a.reportError(expectedLen, "<nil>", "cannot get length of nil container")
-		return
-	}
-
-	containerValue := reflect.ValueOf(container)
-	containerType := containerValue.Type()
-
-	switch containerType.Kind() {
-	case reflect.String, reflect.Slice, reflect.Array, reflect.Map, reflect.Chan:
-		actualLen := containerValue.Len()
-		if actualLen != expectedLen {
-			a.reportError(expectedLen, actualLen, "expected different length")
-		}
-	default:
-		a.reportError(container, "string, slice, array, map, or channel", "container must be string, slice, array, map, or channel")
+	result := diff.CollectionLenDiff(container, expectedLen)
+	if result.HasDiff {
+		a.reportCollectionError(result)
 	}
 }
 
