@@ -886,6 +886,57 @@ func (a *Assert) MapDiff(got, want any) {
 	// Maps are identical - no error
 }
 
+// StructDiff asserts that two structs are equal with enhanced diff output for failures.
+// Provides detailed context showing which fields differ and their values.
+func (a *Assert) StructDiff(got, want any) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Use reflection to handle any struct type
+	gotReflect := reflect.ValueOf(got)
+	wantReflect := reflect.ValueOf(want)
+
+	// Ensure both are structs
+	if gotReflect.Kind() != reflect.Struct {
+		a.errorMsg = fmt.Sprintf("got is not a struct: %T", got)
+		return
+	}
+	if wantReflect.Kind() != reflect.Struct {
+		a.errorMsg = fmt.Sprintf("want is not a struct: %T", want)
+		return
+	}
+
+	// Ensure same struct type
+	gotType := gotReflect.Type()
+	wantType := wantReflect.Type()
+	if gotType != wantType {
+		a.errorMsg = fmt.Sprintf("struct types differ: got %s, want %s", gotType, wantType)
+		return
+	}
+
+	// Compare each field
+	numFields := gotType.NumField()
+	for i := 0; i < numFields; i++ {
+		field := gotType.Field(i)
+
+		// Skip unexported fields
+		if !field.IsExported() {
+			continue
+		}
+
+		gotFieldValue := gotReflect.Field(i).Interface()
+		wantFieldValue := wantReflect.Field(i).Interface()
+
+		if !reflect.DeepEqual(gotFieldValue, wantFieldValue) {
+			a.errorMsg = fmt.Sprintf("structs differ at field %q\n  got: %v\n  want: %v", field.Name, gotFieldValue, wantFieldValue)
+			return
+		}
+	}
+
+	// Structs are identical - no error
+}
+
 // Condition asserts that a certain condition is true.
 func (a *Assert) Condition(condition bool) {
 	if !condition {
