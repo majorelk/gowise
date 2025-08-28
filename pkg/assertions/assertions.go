@@ -1385,6 +1385,11 @@ func (a *Assert) WithinTimeout(f func(), timeout time.Duration) {
 		t.Helper()
 	}
 
+	// Validate timeout - apply sensible default for invalid values
+	if timeout <= 0 {
+		timeout = 5 * time.Second // Use same default as Eventually
+	}
+
 	// Create context with timeout for clean cancellation
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

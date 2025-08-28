@@ -59,9 +59,13 @@ func TestWithinTimeout(t *testing.T) {
 
 		assert.WithinTimeout(panicFunc, 100*time.Millisecond)
 
-		// Should not error - panicked function still "completes"
+		// BEHAVIORAL QUESTION: Should panic = "completed within timeout"?
+		// Current implementation: YES (panic is caught, signals completion)
+		// Alternative behavior: NO (panic should be treated as failure)
+		
+		// Testing current behavior - panicked function "completes"
 		if assert.Error() != "" {
-			t.Errorf("Expected no error for panicked function, got: %s", assert.Error())
+			t.Errorf("Expected no error for panicked function (current behavior), got: %s", assert.Error())
 		}
 	})
 
@@ -72,9 +76,9 @@ func TestWithinTimeout(t *testing.T) {
 
 		assert.WithinTimeout(fastFunc, -1*time.Second)
 
-		// Should timeout immediately with negative timeout
-		if assert.Error() == "" {
-			t.Error("Expected timeout error for negative timeout")
+		// Should apply default timeout and pass for fast function
+		if assert.Error() != "" {
+			t.Errorf("Expected no error with default timeout applied, got: %s", assert.Error())
 		}
 	})
 
@@ -85,9 +89,56 @@ func TestWithinTimeout(t *testing.T) {
 
 		assert.WithinTimeout(fastFunc, 0)
 
-		// Should timeout immediately with zero timeout
+		// Should apply default timeout and pass for fast function
+		if assert.Error() != "" {
+			t.Errorf("Expected no error with default timeout applied, got: %s", assert.Error())
+		}
+	})
+	
+	t.Run("ActualTimingAccuracy", func(t *testing.T) {
+		assert := New(&mockT{})
+		
+		// Function that does actual work for a measurable time
+		workFunc := func() {
+			start := time.Now()
+			for time.Since(start) < 50*time.Millisecond {
+				// Busy work to consume actual time
+				_ = make([]int, 1000)
+			}
+		}
+		
+		// Should complete within reasonable timeout
+		assert.WithinTimeout(workFunc, 200*time.Millisecond)
+		
+		if assert.Error() != "" {
+			t.Errorf("Expected work function to complete within timeout, got: %s", assert.Error())
+		}
+	})
+	
+	t.Run("TimeoutBehaviorWithRealWork", func(t *testing.T) {
+		assert := New(&mockT{})
+		
+		// Function that definitely takes longer than timeout
+		longWorkFunc := func() {
+			start := time.Now()
+			for time.Since(start) < 300*time.Millisecond {
+				// Busy work - can't be optimized away
+				_ = make([]int, 1000)
+			}
+		}
+		
+		// Should timeout with very short timeout
+		startTime := time.Now()
+		assert.WithinTimeout(longWorkFunc, 50*time.Millisecond)
+		elapsed := time.Since(startTime)
+		
 		if assert.Error() == "" {
-			t.Error("Expected timeout error for zero timeout")
+			t.Error("Expected timeout error for long-running function")
+		}
+		
+		// Verify timing accuracy - should be close to timeout duration
+		if elapsed < 40*time.Millisecond || elapsed > 100*time.Millisecond {
+			t.Errorf("Expected timeout around 50ms, but took %v", elapsed)
 		}
 	})
 }
