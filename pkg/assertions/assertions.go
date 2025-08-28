@@ -821,7 +821,7 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 	for i := 0; i < gotLen; i++ {
 		gotVal := gotReflect.Index(i).Interface()
 		wantVal := wantReflect.Index(i).Interface()
-		
+
 		if !reflect.DeepEqual(gotVal, wantVal) {
 			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %v\n  want: %v", i, gotVal, wantVal)
 			return
