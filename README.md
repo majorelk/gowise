@@ -21,8 +21,8 @@ Go’s built-in `testing` package is excellent but intentionally minimal. **GoWi
 | Core assertions             | Equality, nil checking, boolean assertions with fast-path optimisation.                          | ✅     |
 | Collection assertions       | Length, contains, type-safe operations on slices, arrays, maps, strings.                         | ✅     |
 | Enhanced string diff        | Multi-line string comparison with context and unified diff output.                               | ✅     |
-| Error assertions            | NoError, HasError, ErrorIs, ErrorAs, ErrorContains, ErrorMatches.                               | 🚧     |
-| Collection diff helpers     | Readable failure messages for slice, map, and struct comparisons.                                | 🚧     |
+| Error assertions            | NoError, HasError, ErrorIs, ErrorAs, ErrorContains, ErrorMatches, Panics, NotPanics.           | ✅     |
+| Collection diff helpers     | SliceDiff, SliceDiffGeneric, MapDiff with enhanced error reporting.                              | 🚧     |
 | CLI runner (thin MVP)       | Basic test runner wrapping `go test -json` with enhanced filtering and reporting.                | 📝     |
 | Suite lifecycle             | `BeforeAll/AfterAll`, `BeforeEach/AfterEach`, per-test timeouts using stdlib patterns.           | 📝     |
 | Parallel test execution     | Concurrent test execution with deterministic reporting and proper isolation.                     | 📝     |
@@ -149,6 +149,11 @@ assert.ErrorIs(err, target)           // Error wrapping with errors.Is
 assert.ErrorAs(err, &target)          // Error type assertion with errors.As
 assert.ErrorContains(err, "text")     // Error message contains substring
 assert.ErrorMatches(err, "pattern")   // Error message matches regex
+
+// Collection diff assertions (enhanced failure reporting)
+assert.SliceDiff(got, want)           // Integer slice comparison with detailed diff
+assert.SliceDiffGeneric(got, want)    // Any slice type with enhanced error context
+assert.MapDiff(got, want)             // Map comparison showing missing/extra keys and value differences
 
 // Numeric and misc assertions
 assert.InDelta(3.0, 3.001, 0.01)     // Float tolerance
