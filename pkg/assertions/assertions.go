@@ -937,6 +937,52 @@ func (a *Assert) StructDiff(got, want any) {
 	// Structs are identical - no error
 }
 
+// DeepDiff asserts that two values of any type are equal with intelligent diff routing.
+// Automatically selects the most appropriate diff method based on type:
+// - Slices use SliceDiffGeneric for enhanced slice comparison
+// - Maps use MapDiff for key/value analysis
+// - Structs use StructDiff for field-level comparison
+// - Other types use standard deep equality with clear error reporting
+func (a *Assert) DeepDiff(got, want any) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Quick equality check first
+	if reflect.DeepEqual(got, want) {
+		return // Values are identical
+	}
+
+	// Get reflection values and types
+	gotValue := reflect.ValueOf(got)
+	wantValue := reflect.ValueOf(want)
+	gotType := gotValue.Type()
+	wantType := wantValue.Type()
+
+	// Check if types are different
+	if gotType != wantType {
+		a.errorMsg = fmt.Sprintf("types differ\n  got: %s\n  want: %s", gotType, wantType)
+		return
+	}
+
+	// Route to specialized diff methods based on type
+	switch gotValue.Kind() {
+	case reflect.Slice:
+		a.SliceDiffGeneric(got, want)
+		return
+	case reflect.Map:
+		a.MapDiff(got, want)
+		return
+	case reflect.Struct:
+		a.StructDiff(got, want)
+		return
+	default:
+		// For primitives and other types, provide basic comparison
+		a.errorMsg = fmt.Sprintf("values differ\n  got: %v\n  want: %v", got, want)
+		return
+	}
+}
+
 // Condition asserts that a certain condition is true.
 func (a *Assert) Condition(condition bool) {
 	if !condition {
