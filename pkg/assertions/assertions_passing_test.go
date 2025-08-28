@@ -59,13 +59,13 @@ func TestWithinTimeout(t *testing.T) {
 
 		assert.WithinTimeout(panicFunc, 100*time.Millisecond)
 
-		// BEHAVIORAL QUESTION: Should panic = "completed within timeout"?
+		// BEHAVIOURAL QUESTION: Should panic = "completed within timeout"?
 		// Current implementation: YES (panic is caught, signals completion)
-		// Alternative behavior: NO (panic should be treated as failure)
+		// Alternative behaviour: NO (panic should be treated as failure)
 
-		// Testing current behavior - panicked function "completes"
+		// Testing current behaviour - panicked function "completes"
 		if assert.Error() != "" {
-			t.Errorf("Expected no error for panicked function (current behavior), got: %s", assert.Error())
+			t.Errorf("Expected no error for panicked function (current behaviour), got: %s", assert.Error())
 		}
 	})
 
