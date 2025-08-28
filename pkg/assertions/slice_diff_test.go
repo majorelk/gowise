@@ -75,16 +75,3 @@ func TestSliceDiffBasic(t *testing.T) {
 		})
 	}
 }
-
-// capturingT is a test helper that implements testing.T interface for capturing failures
-type capturingT struct {
-	failed bool
-	logs   []string
-}
-
-func (t *capturingT) Helper() {}
-
-func (t *capturingT) Errorf(format string, args ...interface{}) {
-	t.failed = true
-	// We don't actually log since our assertions use Error() method
-}

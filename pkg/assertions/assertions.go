@@ -764,6 +764,30 @@ func (a *Assert) NotPanics(f func()) {
 	f()
 }
 
+// SliceDiff asserts that two slices are equal with enhanced diff output for failures.
+// Provides detailed context showing which elements differ and their positions.
+func (a *Assert) SliceDiff(got, want []int) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Check lengths first
+	if len(got) != len(want) {
+		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", len(got), len(want))
+		return
+	}
+
+	// Find first difference
+	for i, gotVal := range got {
+		if gotVal != want[i] {
+			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %d\n  want: %d", i, gotVal, want[i])
+			return
+		}
+	}
+
+	// Slices are identical - no error
+}
+
 // Condition asserts that a certain condition is true.	// Condition asserts that a certain condition is true.
 func (a *Assert) Condition(condition bool) {
 	if !condition {
