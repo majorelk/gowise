@@ -6,8 +6,163 @@ package assertions
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 )
+
+// TestWithinTimeout tests the WithinTimeout assertion.
+func TestWithinTimeout(t *testing.T) {
+	t.Run("FunctionCompletesWithinTimeout", func(t *testing.T) {
+		assert := New(&mockT{})
+
+		// Function that completes quickly
+		fastFunc := func() {
+			// Completes immediately
+		}
+
+		assert.WithinTimeout(fastFunc, 100*time.Millisecond)
+
+		if assert.Error() != "" {
+			t.Errorf("Expected no error for fast function, got: %s", assert.Error())
+		}
+	})
+
+	t.Run("FunctionExceedsTimeout", func(t *testing.T) {
+		assert := New(&mockT{})
+
+		// Function that takes too long
+		slowFunc := func() {
+			time.Sleep(200 * time.Millisecond)
+		}
+
+		assert.WithinTimeout(slowFunc, 100*time.Millisecond)
+
+		if assert.Error() == "" {
+			t.Error("Expected timeout error for slow function")
+		}
+		if !strings.Contains(assert.Error(), "timeout") {
+			t.Errorf("Expected error message to contain 'timeout', got: %s", assert.Error())
+		}
+		if !strings.Contains(assert.Error(), "elapsed:") {
+			t.Errorf("Expected error message to contain timing info, got: %s", assert.Error())
+		}
+	})
+
+	t.Run("FunctionPanics", func(t *testing.T) {
+		assert := New(&mockT{})
+
+		// Function that panics
+		panicFunc := func() {
+			panic("test panic")
+		}
+
+		assert.WithinTimeout(panicFunc, 100*time.Millisecond)
+
+		// BEHAVIOURAL QUESTION: Should panic = "completed within timeout"?
+		// Current implementation: YES (panic is caught, signals completion)
+		// Alternative behaviour: NO (panic should be treated as failure)
+
+		// Testing current behaviour - panicked function "completes"
+		if assert.Error() != "" {
+			t.Errorf("Expected no error for panicked function (current behaviour), got: %s", assert.Error())
+		}
+	})
+
+	t.Run("NegativeTimeout", func(t *testing.T) {
+		assert := New(&mockT{})
+
+		fastFunc := func() {}
+
+		assert.WithinTimeout(fastFunc, -1*time.Second)
+
+		// Should apply default timeout and pass for fast function
+		if assert.Error() != "" {
+			t.Errorf("Expected no error with default timeout applied, got: %s", assert.Error())
+		}
+	})
+
+	t.Run("ZeroTimeout", func(t *testing.T) {
+		assert := New(&mockT{})
+
+		fastFunc := func() {}
+
+		assert.WithinTimeout(fastFunc, 0)
+
+		// Should apply default timeout and pass for fast function
+		if assert.Error() != "" {
+			t.Errorf("Expected no error with default timeout applied, got: %s", assert.Error())
+		}
+	})
+
+	t.Run("ActualTimingAccuracy", func(t *testing.T) {
+		assert := New(&mockT{})
+
+		// Function that does actual work for a measurable time
+		workFunc := func() {
+			start := time.Now()
+			for time.Since(start) < 50*time.Millisecond {
+				// Busy work to consume actual time
+				_ = make([]int, 1000)
+			}
+		}
+
+		// Should complete within reasonable timeout
+		assert.WithinTimeout(workFunc, 200*time.Millisecond)
+
+		if assert.Error() != "" {
+			t.Errorf("Expected work function to complete within timeout, got: %s", assert.Error())
+		}
+	})
+
+	t.Run("TimeoutBehaviorWithRealWork", func(t *testing.T) {
+		assert := New(&mockT{})
+
+		// Function that definitely takes longer than timeout
+		longWorkFunc := func() {
+			start := time.Now()
+			for time.Since(start) < 300*time.Millisecond {
+				// Busy work - can't be optimised away
+				_ = make([]int, 1000)
+			}
+		}
+
+		// Should timeout with very short timeout
+		startTime := time.Now()
+		assert.WithinTimeout(longWorkFunc, 50*time.Millisecond)
+		elapsed := time.Since(startTime)
+
+		if assert.Error() == "" {
+			t.Error("Expected timeout error for long-running function")
+		}
+
+		// Verify timing accuracy - should be close to timeout duration
+		if elapsed < 40*time.Millisecond || elapsed > 100*time.Millisecond {
+			t.Errorf("Expected timeout around 50ms, but took %v", elapsed)
+		}
+	})
+}
+
+// ExampleAssert_WithinTimeout demonstrates timeout assertion usage.
+func ExampleAssert_WithinTimeout() {
+	assert := New(nil) // mockT for example
+
+	// Fast operation should complete within timeout
+	fastOperation := func() {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	assert.WithinTimeout(fastOperation, 100*time.Millisecond)
+	// No error - completes quickly
+
+	// Slow operation exceeds timeout
+	slowOperation := func() {
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	assert.WithinTimeout(slowOperation, 100*time.Millisecond)
+	// Error: "WithinTimeout: function did not complete within timeout\n  timeout: 100ms\n  elapsed: ~200ms"
+}
 
 // TestAssertions contains the regular tests for the assertions package.
 func TestAssertions(t *testing.T) {

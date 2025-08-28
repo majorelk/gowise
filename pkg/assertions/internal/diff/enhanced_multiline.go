@@ -31,7 +31,7 @@ func EnhancedMultiLineStringDiff(got, want string, contextLines int) EnhancedDif
 		}
 	}
 
-	// Performance optimization: limit processing for very large strings
+	// Performance optimisation: limit processing for very large strings
 	const maxStringLength = 50000 // 50KB limit for enhanced processing
 	if len(got) > maxStringLength || len(want) > maxStringLength {
 		// Fall back to simpler diff for very large strings
@@ -48,7 +48,7 @@ func EnhancedMultiLineStringDiff(got, want string, contextLines int) EnhancedDif
 	gotLines := splitLines(got)
 	wantLines := splitLines(want)
 
-	// Performance optimization: limit line processing
+	// Performance optimisation: limit line processing
 	const maxLines = 1000
 	if len(gotLines) > maxLines || len(wantLines) > maxLines {
 		// Process only first part for very long files

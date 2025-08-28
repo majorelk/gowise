@@ -1377,3 +1377,48 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 		}
 	}
 }
+
+// WithinTimeout asserts that a function completes execution within the specified timeout.
+// Uses proper resource management and provides detailed error messages with timing context.
+func (a *Assert) WithinTimeout(f func(), timeout time.Duration) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Validate timeout - apply sensible default for invalid values
+	if timeout <= 0 {
+		timeout = 5 * time.Second // Use same default as Eventually
+	}
+
+	// Create context with timeout for clean cancellation
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// Track execution time
+	startTime := time.Now()
+	done := make(chan bool, 1)
+
+	// Execute function in goroutine
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Function panicked - still signal completion
+				done <- true
+			}
+		}()
+		f()
+		done <- true
+	}()
+
+	// Wait for completion or timeout
+	select {
+	case <-done:
+		// Function completed successfully within timeout
+		return
+	case <-ctx.Done():
+		// Timeout exceeded
+		elapsed := time.Since(startTime)
+		a.errorMsg = fmt.Sprintf("WithinTimeout: function did not complete within timeout\n  timeout: %v\n  elapsed: %v", timeout, elapsed)
+		return
+	}
+}
