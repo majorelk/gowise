@@ -25,6 +25,7 @@ package assertions
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -499,8 +500,91 @@ func (a *Assert) NoError(err error) {
 
 // ErrorType asserts that a function call returns a specific error type.
 func (a *Assert) ErrorType(expected, actual error) {
-	if reflect.TypeOf(expected) != reflect.TypeOf(actual) {
-		a.reportError(expected, actual, "expected error of different type")
+	expectedType := reflect.TypeOf(expected)
+	actualType := reflect.TypeOf(actual)
+	
+	if expectedType != actualType {
+		// Use cleaner type name formatting
+		expectedTypeName := expectedType.String()
+		actualTypeName := actualType.String()
+		a.errorMsg = fmt.Sprintf("expected error of different type\n  expected: %s\n  actual:   %s", expectedTypeName, actualTypeName)
+	}
+}
+
+// HasError asserts that an error occurred (error is not nil).
+func (a *Assert) HasError(err error) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if err == nil {
+		a.reportError("an error", nil, "expected an error but got none")
+	}
+}
+
+// ErrorIs asserts that an error matches a target error using errors.Is.
+// This follows Go 1.13+ error wrapping patterns.
+func (a *Assert) ErrorIs(err, target error) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if !errors.Is(err, target) {
+		a.reportError(target, err, "expected error to match target")
+	}
+}
+
+// ErrorAs asserts that an error can be assigned to a target type using errors.As.
+// This follows Go 1.13+ error wrapping patterns.
+func (a *Assert) ErrorAs(err error, target interface{}) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if !errors.As(err, target) {
+		a.reportError(reflect.TypeOf(target).Elem(), err, "expected error to be assignable to target type")
+	}
+}
+
+// ErrorContains asserts that an error's message contains a specific substring.
+func (a *Assert) ErrorContains(err error, substring string) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if err == nil {
+		a.reportError(substring, nil, "expected error but got nil")
+		return
+	}
+
+	errorMessage := err.Error()
+	if !strings.Contains(errorMessage, substring) {
+		a.reportError(substring, errorMessage, "expected error message to contain")
+	}
+}
+
+// ErrorMatches asserts that an error's message matches a regular expression pattern.
+func (a *Assert) ErrorMatches(err error, pattern string) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	if err == nil {
+		a.reportError(pattern, nil, "expected error but got nil")
+		return
+	}
+
+	errorMessage := err.Error()
+	matched, regexErr := regexp.MatchString(pattern, errorMessage)
+	if regexErr != nil {
+		a.reportError(pattern, regexErr, "invalid regular expression pattern")
+		return
+	}
+
+	if !matched {
+		// Use direct error message format to avoid string diff confusion
+		// Show raw pattern (no quotes) for better readability
+		a.errorMsg = fmt.Sprintf("expected error message to match pattern\n  pattern: %s\n  error:   %q", pattern, errorMessage)
 	}
 }
 
