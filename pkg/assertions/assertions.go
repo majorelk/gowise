@@ -831,6 +831,61 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 	// Slices are identical - no error
 }
 
+// MapDiff asserts that two maps are equal with enhanced diff output for failures.
+// Provides detailed context showing missing keys, extra keys, and value differences.
+func (a *Assert) MapDiff(got, want any) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Use reflection to handle any map type
+	gotReflect := reflect.ValueOf(got)
+	wantReflect := reflect.ValueOf(want)
+
+	// Ensure both are maps
+	if gotReflect.Kind() != reflect.Map {
+		a.errorMsg = fmt.Sprintf("got is not a map: %T", got)
+		return
+	}
+	if wantReflect.Kind() != reflect.Map {
+		a.errorMsg = fmt.Sprintf("want is not a map: %T", want)
+		return
+	}
+
+	// Check for missing keys (in want but not in got)
+	wantKeys := wantReflect.MapKeys()
+	for _, wantKey := range wantKeys {
+		if !gotReflect.MapIndex(wantKey).IsValid() {
+			wantValue := wantReflect.MapIndex(wantKey).Interface()
+			a.errorMsg = fmt.Sprintf("maps differ: missing key %q\n  expected value: %v", wantKey.Interface(), wantValue)
+			return
+		}
+	}
+
+	// Check for extra keys (in got but not in want)
+	gotKeys := gotReflect.MapKeys()
+	for _, gotKey := range gotKeys {
+		if !wantReflect.MapIndex(gotKey).IsValid() {
+			gotValue := gotReflect.MapIndex(gotKey).Interface()
+			a.errorMsg = fmt.Sprintf("maps differ: unexpected key %q\n  got value: %v", gotKey.Interface(), gotValue)
+			return
+		}
+	}
+
+	// Check for value differences
+	for _, key := range wantKeys {
+		gotValue := gotReflect.MapIndex(key).Interface()
+		wantValue := wantReflect.MapIndex(key).Interface()
+
+		if !reflect.DeepEqual(gotValue, wantValue) {
+			a.errorMsg = fmt.Sprintf("maps differ at key %q\n  got: %v\n  want: %v", key.Interface(), gotValue, wantValue)
+			return
+		}
+	}
+
+	// Maps are identical - no error
+}
+
 // Condition asserts that a certain condition is true.
 func (a *Assert) Condition(condition bool) {
 	if !condition {
