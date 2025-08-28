@@ -122,7 +122,7 @@ func TestWithinTimeout(t *testing.T) {
 		longWorkFunc := func() {
 			start := time.Now()
 			for time.Since(start) < 300*time.Millisecond {
-				// Busy work - can't be optimized away
+				// Busy work - can't be optimised away
 				_ = make([]int, 1000)
 			}
 		}
