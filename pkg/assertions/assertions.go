@@ -24,6 +24,7 @@
 package assertions
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1159,5 +1160,220 @@ func (a *Assert) DirectoryExists(path string) {
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) || !info.IsDir() {
 		a.reportError(path, nil, "directory does not exist")
+	}
+}
+
+// EventuallyConfig holds configuration for Eventually and Never assertions.
+type EventuallyConfig struct {
+	// Timeout is the maximum duration to wait for the condition.
+	Timeout time.Duration
+	// Interval is the polling interval between condition checks.
+	Interval time.Duration
+	// BackoffFactor multiplies the interval after each failed attempt (exponential backoff).
+	// Set to 1.0 for constant interval. Must be >= 1.0.
+	BackoffFactor float64
+	// MaxInterval is the maximum interval between polls when using backoff.
+	// If zero, no maximum is enforced.
+	MaxInterval time.Duration
+}
+
+// defaultEventuallyConfig provides sensible defaults for async testing.
+func defaultEventuallyConfig() EventuallyConfig {
+	return EventuallyConfig{
+		Timeout:       5 * time.Second,
+		Interval:      100 * time.Millisecond,
+		BackoffFactor: 1.0, // No backoff by default
+		MaxInterval:   0,   // No maximum by default
+	}
+}
+
+// Eventually asserts that a condition becomes true within a timeout period.
+// Uses configurable polling with optional exponential backoff.
+// Follows GoWise principles of deterministic timing and resource cleanup.
+func (a *Assert) Eventually(condition func() bool, timeout, interval time.Duration) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	config := EventuallyConfig{
+		Timeout:       timeout,
+		Interval:      interval,
+		BackoffFactor: 1.0,
+		MaxInterval:   0,
+	}
+
+	a.eventuallyWithConfig(condition, config)
+}
+
+// Never asserts that a condition never becomes true within a timeout period.
+// Uses configurable polling with optional exponential backoff.
+// Fails immediately if the condition becomes true at any point.
+func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	config := EventuallyConfig{
+		Timeout:       timeout,
+		Interval:      interval,
+		BackoffFactor: 1.0,
+		MaxInterval:   0,
+	}
+
+	a.neverWithConfig(condition, config)
+}
+
+// EventuallyWith asserts that a condition becomes true using custom configuration.
+// Provides fine-grained control over timeout, polling, and backoff behaviour.
+func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Validate and apply defaults
+	if config.Timeout <= 0 {
+		config.Timeout = defaultEventuallyConfig().Timeout
+	}
+	if config.Interval <= 0 {
+		config.Interval = defaultEventuallyConfig().Interval
+	}
+	if config.BackoffFactor < 1.0 {
+		config.BackoffFactor = 1.0
+	}
+
+	a.eventuallyWithConfig(condition, config)
+}
+
+// NeverWith asserts that a condition never becomes true using custom configuration.
+// Provides fine-grained control over timeout, polling, and backoff behaviour.
+func (a *Assert) NeverWith(condition func() bool, config EventuallyConfig) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Validate and apply defaults
+	if config.Timeout <= 0 {
+		config.Timeout = defaultEventuallyConfig().Timeout
+	}
+	if config.Interval <= 0 {
+		config.Interval = defaultEventuallyConfig().Interval
+	}
+	if config.BackoffFactor < 1.0 {
+		config.BackoffFactor = 1.0
+	}
+
+	a.neverWithConfig(condition, config)
+}
+
+// eventuallyWithConfig implements the core Eventually logic with proper resource management.
+func (a *Assert) eventuallyWithConfig(condition func() bool, config EventuallyConfig) {
+	// Create context with timeout for clean cancellation
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	defer cancel()
+
+	// Track timing for error reporting
+	startTime := time.Now()
+	attempts := 0
+	currentInterval := config.Interval
+
+	// First check without delay
+	attempts++
+	if condition() {
+		return // Success on first try
+	}
+
+	// Start polling loop
+	ticker := time.NewTicker(currentInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Timeout reached - report failure with timing context
+			elapsed := time.Since(startTime)
+			a.errorMsg = fmt.Sprintf("Eventually: condition not met within timeout\n  timeout: %v\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
+				config.Timeout, elapsed, attempts, currentInterval)
+			return
+
+		case <-ticker.C:
+			attempts++
+			if condition() {
+				return // Success
+			}
+
+			// Apply exponential backoff if configured
+			if config.BackoffFactor > 1.0 {
+				newInterval := time.Duration(float64(currentInterval) * config.BackoffFactor)
+
+				// Respect maximum interval if set
+				if config.MaxInterval > 0 && newInterval > config.MaxInterval {
+					newInterval = config.MaxInterval
+				}
+
+				if newInterval != currentInterval {
+					currentInterval = newInterval
+					ticker.Stop()
+					ticker = time.NewTicker(currentInterval)
+				}
+			}
+		}
+	}
+}
+
+// neverWithConfig implements the core Never logic with proper resource management.
+func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig) {
+	// Create context with timeout for clean cancellation
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	defer cancel()
+
+	// Track timing for error reporting
+	startTime := time.Now()
+	attempts := 0
+	currentInterval := config.Interval
+
+	// First check without delay
+	attempts++
+	if condition() {
+		elapsed := time.Since(startTime)
+		a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  interval: %v",
+			elapsed, attempts, config.Interval)
+		return
+	}
+
+	// Start polling loop
+	ticker := time.NewTicker(currentInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			// Timeout reached successfully - condition never became true
+			return
+
+		case <-ticker.C:
+			attempts++
+			if condition() {
+				elapsed := time.Since(startTime)
+				a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
+					elapsed, attempts, currentInterval)
+				return
+			}
+
+			// Apply exponential backoff if configured
+			if config.BackoffFactor > 1.0 {
+				newInterval := time.Duration(float64(currentInterval) * config.BackoffFactor)
+
+				// Respect maximum interval if set
+				if config.MaxInterval > 0 && newInterval > config.MaxInterval {
+					newInterval = config.MaxInterval
+				}
+
+				if newInterval != currentInterval {
+					currentInterval = newInterval
+					ticker.Stop()
+					ticker = time.NewTicker(currentInterval)
+				}
+			}
+		}
 	}
 }
