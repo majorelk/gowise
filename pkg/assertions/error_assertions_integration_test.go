@@ -257,3 +257,74 @@ type CustomError struct {
 func (e *CustomError) Error() string {
 	return e.msg
 }
+
+// Examples for documentation - demonstrating proper usage of error assertions
+
+func ExampleAssert_NoError() {
+	assert := New(&testing.T{})
+
+	// Test that no error occurred
+	var err error // nil error
+	assert.NoError(err)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+func ExampleAssert_HasError() {
+	assert := New(&testing.T{})
+
+	// Test that an error occurred
+	err := errors.New("something went wrong")
+	assert.HasError(err)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+func ExampleAssert_ErrorIs() {
+	assert := New(&testing.T{})
+
+	// Test error unwrapping with errors.Is
+	baseErr := errors.New("base error")
+	wrappedErr := fmt.Errorf("wrapped: %w", baseErr)
+	assert.ErrorIs(wrappedErr, baseErr)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+func ExampleAssert_ErrorAs() {
+	assert := New(&testing.T{})
+
+	// Test error type assertion with errors.As
+	customErr := &CustomError{msg: "custom error"}
+	wrappedErr := fmt.Errorf("wrapped: %w", customErr)
+	var target *CustomError
+	assert.ErrorAs(wrappedErr, &target)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+func ExampleAssert_ErrorContains() {
+	assert := New(&testing.T{})
+
+	// Test that error message contains specific text
+	err := errors.New("file not found in directory")
+	assert.ErrorContains(err, "not found")
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+func ExampleAssert_ErrorMatches() {
+	assert := New(&testing.T{})
+
+	// Test that error message matches regex pattern
+	err := errors.New("operation failed: timeout after 30 seconds")
+	assert.ErrorMatches(err, `timeout after \d+ seconds`)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}

@@ -493,6 +493,10 @@ func (a *Assert) Regexp(pattern, str string) {
 
 // NoError asserts that a function call returns no error.
 func (a *Assert) NoError(err error) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	if err != nil {
 		a.reportError("no error", err, "expected no error")
 	}
@@ -500,11 +504,15 @@ func (a *Assert) NoError(err error) {
 
 // ErrorType asserts that a function call returns a specific error type.
 func (a *Assert) ErrorType(expected, actual error) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	expectedType := reflect.TypeOf(expected)
 	actualType := reflect.TypeOf(actual)
-	
+
 	if expectedType != actualType {
-		// Use cleaner type name formatting
+		// Use cleaner type name formatting for error message
 		expectedTypeName := expectedType.String()
 		actualTypeName := actualType.String()
 		a.errorMsg = fmt.Sprintf("expected error of different type\n  expected: %s\n  actual:   %s", expectedTypeName, actualTypeName)
