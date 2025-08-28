@@ -452,7 +452,7 @@ func TestEdgeCases(t *testing.T) {
 
 	t.Run("VeryLongTimeout", func(t *testing.T) {
 		assert := New(&mockT{})
-		
+
 		assert.Eventually(func() bool {
 			return true // Succeeds immediately
 		}, 24*time.Hour, 1*time.Second) // Very long timeout
@@ -515,8 +515,8 @@ func TestEdgeCases(t *testing.T) {
 
 		// Test with backoff factor exactly 1.0
 		config := EventuallyConfig{
-			Timeout:       200*time.Millisecond,
-			Interval:      50*time.Millisecond,
+			Timeout:       200 * time.Millisecond,
+			Interval:      50 * time.Millisecond,
 			BackoffFactor: 1.0, // No backoff
 		}
 
@@ -533,8 +533,8 @@ func TestEdgeCases(t *testing.T) {
 		assert := New(&mockT{})
 
 		config := EventuallyConfig{
-			Timeout:       100*time.Millisecond,
-			Interval:      20*time.Millisecond,
+			Timeout:       100 * time.Millisecond,
+			Interval:      20 * time.Millisecond,
 			BackoffFactor: 0.5, // Invalid - should be corrected to 1.0
 		}
 
@@ -551,10 +551,10 @@ func TestEdgeCases(t *testing.T) {
 		assert := New(&mockT{})
 
 		config := EventuallyConfig{
-			Timeout:       200*time.Millisecond,
-			Interval:      100*time.Millisecond,
+			Timeout:       200 * time.Millisecond,
+			Interval:      100 * time.Millisecond,
 			BackoffFactor: 2.0,
-			MaxInterval:   50*time.Millisecond, // Smaller than initial interval
+			MaxInterval:   50 * time.Millisecond, // Smaller than initial interval
 		}
 
 		assert.EventuallyWith(func() bool {
@@ -577,7 +577,7 @@ func TestEdgeCases(t *testing.T) {
 		}, 100*time.Millisecond, 25*time.Millisecond)
 
 		elapsed := time.Since(startTime)
-		
+
 		if assert.Error() == "" {
 			t.Error("Expected timeout error")
 		}
@@ -801,19 +801,19 @@ func ExampleAssert_NeverWith() {
 // ExampleAssert_Eventually_fileAppears demonstrates waiting for file creation.
 func ExampleAssert_Eventually_fileAppears() {
 	assert := New(&testing.T{})
-	
+
 	// Simulate file creation after delay
 	var fileExists int32
 	go func() {
 		time.Sleep(100 * time.Millisecond)
 		atomic.StoreInt32(&fileExists, 1)
 	}()
-	
+
 	// Wait for file to appear - in real usage you'd check os.Stat
 	assert.Eventually(func() bool {
 		return atomic.LoadInt32(&fileExists) == 1
 	}, 1*time.Second, 50*time.Millisecond)
-	
+
 	fmt.Println("File appeared:", assert.Error() == "")
 	// Output: File appeared: true
 }
@@ -821,19 +821,19 @@ func ExampleAssert_Eventually_fileAppears() {
 // ExampleAssert_Eventually_httpHealthCheck demonstrates HTTP endpoint health checking.
 func ExampleAssert_Eventually_httpHealthCheck() {
 	assert := New(&testing.T{})
-	
+
 	// Simulate HTTP health check
 	var serverHealthy int32
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		atomic.StoreInt32(&serverHealthy, 1)
 	}()
-	
+
 	assert.Eventually(func() bool {
 		// In real usage: resp, err := http.Get("http://service/health"); return err == nil && resp.StatusCode == 200
 		return atomic.LoadInt32(&serverHealthy) == 1
 	}, 2*time.Second, 100*time.Millisecond)
-	
+
 	fmt.Println("Health check passed:", assert.Error() == "")
 	// Output: Health check passed: true
 }
@@ -841,10 +841,10 @@ func ExampleAssert_Eventually_httpHealthCheck() {
 // ExampleAssert_Never_resourceLeak demonstrates detecting resource leaks.
 func ExampleAssert_Never_resourceLeak() {
 	assert := New(&testing.T{})
-	
+
 	// Simulate resource monitoring
 	var resourceCount int32 = 10
-	
+
 	go func() {
 		// Simulate resource usage that should not exceed limit
 		for i := 0; i < 5; i++ {
@@ -852,12 +852,12 @@ func ExampleAssert_Never_resourceLeak() {
 			atomic.AddInt32(&resourceCount, 1)
 		}
 	}()
-	
+
 	// Ensure resource usage never exceeds limit
 	assert.Never(func() bool {
 		return atomic.LoadInt32(&resourceCount) > 20
 	}, 400*time.Millisecond, 50*time.Millisecond)
-	
+
 	fmt.Println("Resource leak prevented:", assert.Error() == "")
 	// Output: Resource leak prevented: true
 }
@@ -869,7 +869,7 @@ func ExampleEventuallyConfig() {
 		Timeout:  3 * time.Second,
 		Interval: 100 * time.Millisecond,
 	}
-	
+
 	// Configuration with exponential backoff
 	backoffConfig := EventuallyConfig{
 		Timeout:       10 * time.Second,
@@ -877,7 +877,7 @@ func ExampleEventuallyConfig() {
 		BackoffFactor: 2.0,
 		MaxInterval:   1 * time.Second,
 	}
-	
+
 	fmt.Printf("Basic timeout: %v, interval: %v\n", basicConfig.Timeout, basicConfig.Interval)
 	fmt.Printf("Backoff factor: %.1f, max interval: %v\n", backoffConfig.BackoffFactor, backoffConfig.MaxInterval)
 	// Output: Basic timeout: 3s, interval: 100ms
@@ -887,27 +887,27 @@ func ExampleEventuallyConfig() {
 // ExampleAssert_EventuallyWith_databaseConnection demonstrates database connection with retry backoff.
 func ExampleAssert_EventuallyWith_databaseConnection() {
 	assert := New(&testing.T{})
-	
+
 	var connectionEstablished int32
 	var connectionAttempts int32
-	
+
 	go func() {
 		time.Sleep(250 * time.Millisecond) // Database becomes available
 		atomic.StoreInt32(&connectionEstablished, 1)
 	}()
-	
+
 	config := EventuallyConfig{
 		Timeout:       2 * time.Second,
 		Interval:      100 * time.Millisecond,
 		BackoffFactor: 1.5, // Increase interval by 50% each attempt
 		MaxInterval:   500 * time.Millisecond,
 	}
-	
+
 	assert.EventuallyWith(func() bool {
 		atomic.AddInt32(&connectionAttempts, 1)
 		return atomic.LoadInt32(&connectionEstablished) == 1
 	}, config)
-	
+
 	fmt.Println("Database connected:", assert.Error() == "")
 	fmt.Println("Used backoff strategy:", atomic.LoadInt32(&connectionAttempts) <= 4)
 	// Output: Database connected: true
@@ -917,20 +917,20 @@ func ExampleAssert_EventuallyWith_databaseConnection() {
 // ExampleAssert_Never_timeoutScenario demonstrates timeout detection.
 func ExampleAssert_Never_timeoutScenario() {
 	assert := New(&testing.T{})
-	
+
 	// Simulate operation that should complete quickly
 	var operationTimeout int32
-	
+
 	go func() {
 		time.Sleep(50 * time.Millisecond) // Operation completes quickly
 		// In this example, timeout never occurs
 	}()
-	
+
 	// Verify operation never times out during test period
 	assert.Never(func() bool {
 		return atomic.LoadInt32(&operationTimeout) == 1
 	}, 200*time.Millisecond, 25*time.Millisecond)
-	
+
 	fmt.Println("No timeout detected:", assert.Error() == "")
 	// Output: No timeout detected: true
 }

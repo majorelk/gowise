@@ -23,7 +23,7 @@ func BenchmarkEventually(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
 			var ready int32
-			
+
 			go func() {
 				time.Sleep(50 * time.Millisecond)
 				atomic.StoreInt32(&ready, 1)
@@ -77,10 +77,10 @@ func BenchmarkNever(b *testing.B) {
 func BenchmarkEventuallyWith(b *testing.B) {
 	b.Run("BasicConfig", func(b *testing.B) {
 		config := EventuallyConfig{
-			Timeout:  500*time.Millisecond,
-			Interval: 25*time.Millisecond,
+			Timeout:  500 * time.Millisecond,
+			Interval: 25 * time.Millisecond,
 		}
-		
+
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
@@ -92,17 +92,17 @@ func BenchmarkEventuallyWith(b *testing.B) {
 
 	b.Run("ExponentialBackoff", func(b *testing.B) {
 		config := EventuallyConfig{
-			Timeout:       1*time.Second,
-			Interval:      10*time.Millisecond,
+			Timeout:       1 * time.Second,
+			Interval:      10 * time.Millisecond,
 			BackoffFactor: 2.0,
-			MaxInterval:   100*time.Millisecond,
+			MaxInterval:   100 * time.Millisecond,
 		}
-		
+
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
 			var counter int32
-			
+
 			assert.EventuallyWith(func() bool {
 				return atomic.AddInt32(&counter, 1) >= 3
 			}, config)
@@ -111,16 +111,16 @@ func BenchmarkEventuallyWith(b *testing.B) {
 
 	b.Run("NoBackoff", func(b *testing.B) {
 		config := EventuallyConfig{
-			Timeout:       500*time.Millisecond,
-			Interval:      20*time.Millisecond,
+			Timeout:       500 * time.Millisecond,
+			Interval:      20 * time.Millisecond,
 			BackoffFactor: 1.0, // No backoff
 		}
-		
+
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
 			var counter int32
-			
+
 			assert.EventuallyWith(func() bool {
 				return atomic.AddInt32(&counter, 1) >= 3
 			}, config)
@@ -136,7 +136,7 @@ func BenchmarkConcurrentAssertions(b *testing.B) {
 			for pb.Next() {
 				assert := New(&mockT{})
 				var ready int32
-				
+
 				go func() {
 					time.Sleep(30 * time.Millisecond)
 					atomic.StoreInt32(&ready, 1)
@@ -170,7 +170,7 @@ func BenchmarkResourceUsage(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
-			
+
 			// Test memory efficiency with longer operations
 			var counter int32
 			assert.Eventually(func() bool {
@@ -183,14 +183,14 @@ func BenchmarkResourceUsage(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
-			
+
 			// Test that cleanup properly handles goroutines
 			var ready int32
 			go func() {
 				time.Sleep(100 * time.Millisecond)
 				atomic.StoreInt32(&ready, 1)
 			}()
-			
+
 			assert.Eventually(func() bool {
 				return atomic.LoadInt32(&ready) == 1
 			}, 500*time.Millisecond, 30*time.Millisecond)
@@ -200,15 +200,15 @@ func BenchmarkResourceUsage(b *testing.B) {
 	b.Run("TimerEfficiency", func(b *testing.B) {
 		b.ReportAllocs()
 		config := EventuallyConfig{
-			Timeout:       300*time.Millisecond,
-			Interval:      20*time.Millisecond,
+			Timeout:       300 * time.Millisecond,
+			Interval:      20 * time.Millisecond,
 			BackoffFactor: 1.5,
 		}
-		
+
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
 			var counter int32
-			
+
 			assert.EventuallyWith(func() bool {
 				return atomic.AddInt32(&counter, 1) >= 5
 			}, config)
@@ -222,11 +222,11 @@ func BenchmarkErrorReporting(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
-			
+
 			assert.Eventually(func() bool {
 				return false // Always fails
 			}, 50*time.Millisecond, 10*time.Millisecond)
-			
+
 			// Force error message generation
 			_ = assert.Error()
 		}
@@ -236,11 +236,11 @@ func BenchmarkErrorReporting(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
-			
+
 			assert.Never(func() bool {
 				return true // Always fails immediately
 			}, 100*time.Millisecond, 20*time.Millisecond)
-			
+
 			// Force error message generation
 			_ = assert.Error()
 		}
@@ -251,10 +251,10 @@ func BenchmarkErrorReporting(b *testing.B) {
 func BenchmarkConfigurationOverhead(b *testing.B) {
 	b.Run("MinimalConfig", func(b *testing.B) {
 		config := EventuallyConfig{
-			Timeout:  200*time.Millisecond,
-			Interval: 50*time.Millisecond,
+			Timeout:  200 * time.Millisecond,
+			Interval: 50 * time.Millisecond,
 		}
-		
+
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
@@ -266,12 +266,12 @@ func BenchmarkConfigurationOverhead(b *testing.B) {
 
 	b.Run("FullConfig", func(b *testing.B) {
 		config := EventuallyConfig{
-			Timeout:       500*time.Millisecond,
-			Interval:      25*time.Millisecond,
+			Timeout:       500 * time.Millisecond,
+			Interval:      25 * time.Millisecond,
 			BackoffFactor: 1.8,
-			MaxInterval:   200*time.Millisecond,
+			MaxInterval:   200 * time.Millisecond,
 		}
-		
+
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
@@ -283,11 +283,11 @@ func BenchmarkConfigurationOverhead(b *testing.B) {
 
 	b.Run("DefaultValidation", func(b *testing.B) {
 		config := EventuallyConfig{
-			Timeout:       -1*time.Second, // Invalid
-			Interval:      -100*time.Millisecond, // Invalid
-			BackoffFactor: 0.5, // Invalid
+			Timeout:       -1 * time.Second,        // Invalid
+			Interval:      -100 * time.Millisecond, // Invalid
+			BackoffFactor: 0.5,                     // Invalid
 		}
-		
+
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			assert := New(&mockT{})
