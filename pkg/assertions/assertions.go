@@ -788,7 +788,50 @@ func (a *Assert) SliceDiff(got, want []int) {
 	// Slices are identical - no error
 }
 
-// Condition asserts that a certain condition is true.	// Condition asserts that a certain condition is true.
+// SliceDiffGeneric asserts that two slices of any comparable type are equal with enhanced diff output.
+// Provides detailed context showing which elements differ and their positions.
+func (a *Assert) SliceDiffGeneric(got, want any) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Use reflection to handle any slice type
+	gotReflect := reflect.ValueOf(got)
+	wantReflect := reflect.ValueOf(want)
+
+	// Ensure both are slices
+	if gotReflect.Kind() != reflect.Slice {
+		a.errorMsg = fmt.Sprintf("got is not a slice: %T", got)
+		return
+	}
+	if wantReflect.Kind() != reflect.Slice {
+		a.errorMsg = fmt.Sprintf("want is not a slice: %T", want)
+		return
+	}
+
+	// Check lengths first
+	gotLen := gotReflect.Len()
+	wantLen := wantReflect.Len()
+	if gotLen != wantLen {
+		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", gotLen, wantLen)
+		return
+	}
+
+	// Find first difference
+	for i := 0; i < gotLen; i++ {
+		gotVal := gotReflect.Index(i).Interface()
+		wantVal := wantReflect.Index(i).Interface()
+
+		if !reflect.DeepEqual(gotVal, wantVal) {
+			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %v\n  want: %v", i, gotVal, wantVal)
+			return
+		}
+	}
+
+	// Slices are identical - no error
+}
+
+// Condition asserts that a certain condition is true.
 func (a *Assert) Condition(condition bool) {
 	if !condition {
 		a.reportError(true, condition, "expected condition to be true")
