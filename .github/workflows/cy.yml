@@ -97,42 +97,7 @@ jobs:
           fi
 
       - name: UK English spelling check
-        run: |
-          # Check for US spellings in code comments and docs (excluding JSON tags and stdlib)
-          # Based on GoWise project standards for UK English
-          US_SPELLINGS="\bbehavior\b|\binitialize\b|\borganize\b|\bprioritize\b|\boptimize\b|\bmodularize\b|\bstandardize\b|\bnormalize\b|\bspecialize\b|\bmaterialize\b|\bparameterize\b|\bsynchronize\b|\bminimize\b|\bmaximize\b|\bcharacterize\b|\bcentralize\b|\bfinalize\b|\banalyze\b|\bcatalog\b|\bflavor\b|\bcolor\b|\bhonor\b|\blabor\b|\bfavor\b|\barmor\b|\btumor\b|\bhumor\b|\bvigor\b|\btraveled\b|\bcanceled\b|\bmodeling\b|\bleveling\b"
-          
-          echo "Checking for US English spellings..."
-          FOUND_US_SPELLINGS=0
-          
-          # Search for US spellings and show specific matches
-          if grep -r -n -E "$US_SPELLINGS" --include="*.go" --include="*.md" . | grep -v ".git" | grep -v 'json:' | grep -v 'xml:'; then
-            echo ""
-            echo "❌ Found US English spellings above. Use UK English equivalents:"
-            echo "   behavior → behaviour     initialize → initialise"
-            echo "   organize → organise      prioritize → prioritise" 
-            echo "   optimize → optimise      analyze → analyse"
-            echo "   catalog → catalogue      flavor → flavour"
-            echo "   color → colour           honor → honour"
-            echo "   license → licence        traveled → travelled"
-            echo "   canceled → cancelled     modeling → modelling"
-            FOUND_US_SPELLINGS=1
-          fi
-          
-          # Check for "license" but exclude JSON/XML struct tags and stdlib usage
-          if grep -r -n "\blicense\b" --include="*.go" --include="*.md" . | grep -v ".git" | grep -v 'json:"' | grep -v 'xml:"' | grep -v 'License:' | grep -v 'LICENSE' | grep -v '// license' | head -5; then
-            echo ""
-            echo "❌ Found 'license' - use 'licence' in UK English (excluding JSON/XML tags and license headers)"
-            FOUND_US_SPELLINGS=1
-          fi
-          
-          if [ $FOUND_US_SPELLINGS -eq 1 ]; then
-            echo ""
-            echo "Fix all US spellings above to comply with GoWise UK English standards."
-            exit 1
-          fi
-          
-          echo "✅ All spelling checks passed - UK English correctly used throughout"
+        run: ./scripts/check-uk-spelling.sh
 
       - name: Check documentation examples
         run: |
