@@ -876,7 +876,7 @@ func (a *Assert) MapDiff(got, want any) {
 	for _, key := range wantKeys {
 		gotValue := gotReflect.MapIndex(key).Interface()
 		wantValue := wantReflect.MapIndex(key).Interface()
-		
+
 		if !reflect.DeepEqual(gotValue, wantValue) {
 			a.errorMsg = fmt.Sprintf("maps differ at key %q\n  got: %v\n  want: %v", key.Interface(), gotValue, wantValue)
 			return
