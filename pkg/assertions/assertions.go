@@ -721,6 +721,10 @@ func (a *Assert) MatchesPattern(pattern, s string) {
 
 // Panics asserts that a certain function panics.
 func (a *Assert) Panics(f func()) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	defer func() {
 		if r := recover(); r == nil {
 			a.reportError("panic", nil, "expected to panic")
@@ -732,6 +736,10 @@ func (a *Assert) Panics(f func()) {
 
 // PanicsWith asserts that a certain function panics with a specific value.
 func (a *Assert) PanicsWith(f func(), expected interface{}) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	defer func() {
 		if r := recover(); r != expected {
 			a.reportError(expected, r, "expected to panic with")
@@ -743,6 +751,10 @@ func (a *Assert) PanicsWith(f func(), expected interface{}) {
 
 // NotPanics asserts that a certain function does not panic.
 func (a *Assert) NotPanics(f func()) {
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			a.reportError("no panic", r, "expected not to panic")

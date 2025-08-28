@@ -328,3 +328,168 @@ func ExampleAssert_ErrorMatches() {
 	fmt.Println("No error:", assert.Error() == "")
 	// Output: No error: true
 }
+
+func ExampleAssert_Panics() {
+	assert := New(&testing.T{})
+
+	// Test that a function panics
+	assert.Panics(func() {
+		panic("something went wrong")
+	})
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+func ExampleAssert_NotPanics() {
+	assert := New(&testing.T{})
+
+	// Test that a function does not panic
+	assert.NotPanics(func() {
+		// Normal function that doesn't panic
+		_ = 1 + 1
+	})
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+func ExampleAssert_PanicsWith() {
+	assert := New(&testing.T{})
+
+	// Test that a function panics with a specific value
+	expectedPanic := "specific error"
+	assert.PanicsWith(func() {
+		panic(expectedPanic)
+	}, expectedPanic)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
+}
+
+// TestPanicAssertionsIntegration tests panic assertion behaviour through the public API
+// following TDD principles and testing observable behaviour, not implementation details.
+func TestPanicAssertionsIntegration(t *testing.T) {
+	tests := []struct {
+		name                string
+		setupAndAssert      func(assert *Assert)
+		expectErrorContains []string
+		shouldPass          bool
+	}{
+		{
+			name: "Panics - passes when function panics",
+			setupAndAssert: func(assert *Assert) {
+				assert.Panics(func() {
+					panic("test panic")
+				})
+			},
+			shouldPass: true,
+		},
+		{
+			name: "Panics - fails when function doesn't panic",
+			setupAndAssert: func(assert *Assert) {
+				assert.Panics(func() {
+					// Function that doesn't panic
+					_ = 1 + 1
+				})
+			},
+			expectErrorContains: []string{
+				"expected to panic",
+			},
+			shouldPass: false,
+		},
+		{
+			name: "NotPanics - passes when function doesn't panic",
+			setupAndAssert: func(assert *Assert) {
+				assert.NotPanics(func() {
+					// Normal function execution
+					result := "safe operation"
+					_ = result
+				})
+			},
+			shouldPass: true,
+		},
+		{
+			name: "NotPanics - fails when function panics",
+			setupAndAssert: func(assert *Assert) {
+				assert.NotPanics(func() {
+					panic("unexpected panic")
+				})
+			},
+			expectErrorContains: []string{
+				"expected not to panic",
+				"unexpected panic",
+			},
+			shouldPass: false,
+		},
+		{
+			name: "PanicsWith - passes when function panics with expected value",
+			setupAndAssert: func(assert *Assert) {
+				expectedValue := "specific panic message"
+				assert.PanicsWith(func() {
+					panic(expectedValue)
+				}, expectedValue)
+			},
+			shouldPass: true,
+		},
+		{
+			name: "PanicsWith - fails when function panics with different value",
+			setupAndAssert: func(assert *Assert) {
+				assert.PanicsWith(func() {
+					panic("actual panic")
+				}, "expected panic")
+			},
+			expectErrorContains: []string{
+				"expected to panic with",
+				"expected panic",
+				"actual panic",
+			},
+			shouldPass: false,
+		},
+		{
+			name: "PanicsWith - fails when function doesn't panic",
+			setupAndAssert: func(assert *Assert) {
+				assert.PanicsWith(func() {
+					// Function that doesn't panic
+				}, "expected panic")
+			},
+			expectErrorContains: []string{
+				"expected to panic with",
+				"expected panic",
+			},
+			shouldPass: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a dummy testing.T that captures failures
+			dummyT := &capturingT{}
+			assert := New(dummyT)
+
+			// Execute the assertion
+			tt.setupAndAssert(assert)
+
+			errorMsg := assert.Error()
+
+			if tt.shouldPass {
+				// Should pass - no error message
+				if errorMsg != "" {
+					t.Errorf("Expected assertion to pass but got error: %s", errorMsg)
+				}
+			} else {
+				// Should fail - check error message contains expected content
+				if errorMsg == "" {
+					t.Fatalf("Expected error message but got none")
+				}
+
+				// Check that all expected parts are in the error message
+				for _, expected := range tt.expectErrorContains {
+					if !strings.Contains(errorMsg, expected) {
+						t.Errorf("Error message missing expected content %q\\nFull error message:\\n%s", expected, errorMsg)
+					}
+				}
+			}
+		})
+	}
+}
