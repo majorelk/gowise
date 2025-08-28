@@ -1,6 +1,7 @@
 package assertions
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -97,4 +98,17 @@ func TestMapDiff(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ExampleAssert_MapDiff demonstrates proper usage of map diff assertion
+func ExampleAssert_MapDiff() {
+	assert := New(&testing.T{})
+
+	// Test that two maps are identical
+	got := map[string]int{"alice": 30, "bob": 25}
+	want := map[string]int{"alice": 30, "bob": 25}
+	assert.MapDiff(got, want)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
 }

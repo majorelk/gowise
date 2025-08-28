@@ -1,6 +1,7 @@
 package assertions
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -74,4 +75,17 @@ func TestSliceDiffBasic(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ExampleAssert_SliceDiff demonstrates proper usage of basic slice diff assertion
+func ExampleAssert_SliceDiff() {
+	assert := New(&testing.T{})
+
+	// Test that two integer slices are identical
+	got := []int{1, 2, 3}
+	want := []int{1, 2, 3}
+	assert.SliceDiff(got, want)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
 }
