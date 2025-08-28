@@ -1,6 +1,7 @@
 package assertions
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -97,4 +98,17 @@ func TestSliceDiffGeneric(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ExampleAssert_SliceDiffGeneric demonstrates proper usage of generic slice diff assertion
+func ExampleAssert_SliceDiffGeneric() {
+	assert := New(&testing.T{})
+
+	// Test that two string slices are identical
+	got := []string{"apple", "banana", "cherry"}
+	want := []string{"apple", "banana", "cherry"}
+	assert.SliceDiffGeneric(got, want)
+
+	fmt.Println("No error:", assert.Error() == "")
+	// Output: No error: true
 }
