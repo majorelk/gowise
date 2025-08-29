@@ -418,21 +418,35 @@ func TestAsyncOperations(t *testing.T) {
 	t.Run("EventualConsistency", func(t *testing.T) {
 		var createdUser User
 		var err error
+		var mu sync.Mutex
+		var completed bool
 
 		// Start async user creation
 		go func() {
-			createdUser, err = db.CreateUser("asyncuser", "async@example.com")
+			user, userErr := db.CreateUser("asyncuser", "async@example.com")
+			mu.Lock()
+			createdUser = user
+			err = userErr
+			completed = true
+			mu.Unlock()
 		}()
 
 		// Use Eventually to wait for async operation completion
 		assert.Eventually(func() bool {
-			return createdUser.ID != 0 || err != nil
+			mu.Lock()
+			defer mu.Unlock()
+			return completed
 		}, 1*time.Second, 50*time.Millisecond)
 
-		// Verify successful creation
-		assert.NoError(err)
-		assert.Equal(createdUser.Username, "asyncuser")
-		assert.True(createdUser.ID > 0)
+		// Verify successful creation (no need to lock here as Eventually ensures completion)
+		mu.Lock()
+		finalUser := createdUser
+		finalErr := err
+		mu.Unlock()
+		
+		assert.NoError(finalErr)
+		assert.Equal(finalUser.Username, "asyncuser")
+		assert.True(finalUser.ID > 0)
 	})
 
 	t.Run("NeverViolatesInvariant", func(t *testing.T) {
