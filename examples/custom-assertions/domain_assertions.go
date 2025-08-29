@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -139,7 +140,7 @@ func (a *DomainAssert) JSONEquals(jsonData string, key string, expectedValue int
 		return a
 	}
 
-	if actualValue != expectedValue {
+	if !reflect.DeepEqual(actualValue, expectedValue) {
 		a.t.Errorf("JSONEquals: wrong value for key\n  key: %q\n  got: %v (%T)\n  want: %v (%T)",
 			key, actualValue, actualValue, expectedValue, expectedValue)
 	}
