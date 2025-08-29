@@ -74,7 +74,7 @@ Do **not**: peek at unexported fields, count internal calls, rely on goroutine s
 - [ ] Contract tests for any new/changed public interface (where applicable)  
 - [ ] Benchmarks for hot paths **or** a short justification if omitted  
 - [ ] Doc comments + `ExampleXxx` for all new public APIs  
-- [ ] UK English used in docs/comments
+- [ ] UK English used in docs/comments (enforced by automated CI spelling check)
 
 ---
 

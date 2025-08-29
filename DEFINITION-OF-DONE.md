@@ -20,13 +20,16 @@ Use this template for all GitHub issues to ensure consistent quality standards.
 
 **Documentation:**
 - [ ] `ExampleXxx` functions for all new public APIs
-- [ ] UK English spelling throughout (behaviour, initialise, licence)
+- [ ] UK English spelling throughout (behaviour, initialise, licence)  
 - [ ] Code comments explain "why" not "what"
+- [ ] Comments and docs use UK spellings: behaviour/initialise/organise/optimise/analyse/licence
+- [ ] API compatibility exceptions documented (JSON tags, stdlib function names)
 
 **CI/CD:**
 - [ ] All GitHub Actions workflows pass
 - [ ] No external modules guard passes
 - [ ] Behaviour-focused testing validation passes
+- [ ] UK English spelling check passes (`./scripts/check-uk-spelling.sh`)
 
 ## Feature-Specific Additions
 

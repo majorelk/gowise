@@ -41,6 +41,14 @@ import (
 	"gowise/pkg/assertions/internal/diff"
 )
 
+// TestingT represents the interface that testing.T implements.
+// This allows for both real tests and mock implementations.
+type TestingT interface {
+	Errorf(format string, args ...interface{})
+	FailNow()
+	Helper()
+}
+
 // isComparable checks if two values can be compared with ==.
 // This is a fast-path optimisation for common types.
 func isComparable(a, b interface{}) bool {

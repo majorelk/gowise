@@ -52,7 +52,10 @@ LICENSE_RESULTS=$(grep -r -n "\blicense\b" --include="*.go" --include="*.md" . |
     grep -v 'License:' | \
     grep -v 'LICENSE' | \
     grep -v '// Copyright' | \
-    grep -v 'MIT' || true)
+    grep -v 'MIT' | \
+    grep -v 'license (US)' | \
+    grep -v 'license/US' | \
+    grep -v '| license' || true)
 
 if [ -n "$LICENSE_RESULTS" ]; then
     echo "Found 'license' in comments/documentation:"

@@ -239,6 +239,29 @@ gowise [flags]
 The runner parses `go test -json` output and transforms it into enhanced formats whilst maintaining full compatibility with existing Go tooling.
 ---
 
+### UK English Standards
+GoWise enforces UK English spelling throughout documentation and code comments via automated CI checks:
+
+**Automatically Checked Spellings:**
+- behaviour (not behavior), initialise (not initialize), organise (not organize)  
+- prioritise (not prioritize), optimise (not optimize), analyse (not analyze)
+- catalogue (not catalog), licence (not license/US), colour (not color)
+- travelled (not traveled), cancelled (not canceled), modelling (not modeling)
+
+**Smart Filtering:**
+- **Standard library compatibility**: `context.WithCancel`, `http.Header` etc. are exempt
+- **API compatibility**: JSON/XML struct tags may use US spellings for external APIs
+- **Existing code tolerance**: Only flags new violations in comments and documentation
+
+**Check Locally:**
+```bash
+./scripts/check-uk-spelling.sh
+```
+
+The spelling checker focuses on comments and documentation where developers have control, while allowing necessary US spellings for Go standard library integration and external API compatibility.
+
+---
+
 ### Development Standards & Testing Policy
 
 **Current Testing Approach:**
@@ -256,6 +279,7 @@ The runner parses `go test -json` output and transforms it into enhanced formats
 
 **Quality Standards:**
 - CI runs with `-race`, `-timeout=5m`, and `-vet=all`
+- **UK English spelling enforced** via automated CI checks on comments and documentation
 - Golden files stored under `testdata/` and reviewed like code
 - **No reflection** in hot paths where avoidable
 - **UK English** in all documentation and error messages
