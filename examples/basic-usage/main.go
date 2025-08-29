@@ -37,7 +37,7 @@ func (m *mockT) FailNow() {
 func (m *mockT) Helper() {} // Optional method
 
 func main() {
-	fmt.Println("=== GoWise Basic Usage Examples ===\n")
+	fmt.Println("=== GoWise Basic Usage Examples ===")
 
 	// Example 1: Core Equality Assertions
 	fmt.Println("1. Core Equality Assertions")
@@ -69,9 +69,9 @@ func main() {
 	demonstrateNumericAssertions()
 	fmt.Println()
 
-	// Example 7: Method Chaining
-	fmt.Println("7. Method Chaining")
-	demonstrateMethodChaining()
+	// Example 7: Multiple Assertions
+	fmt.Println("7. Multiple Assertions")
+	demonstrateMultipleAssertions()
 	fmt.Println()
 }
 
@@ -242,15 +242,15 @@ func demonstrateNumericAssertions() {
 	start := time.Now()
 	time.Sleep(10 * time.Millisecond)
 	end := time.Now()
-	assert.WithinDuration(end, start, 50*time.Millisecond)
+	assert.IsWithinDuration(end, start, 50*time.Millisecond)
 	fmt.Printf("✓ WithinDuration assertion passed: %t\n", len(mock.errors) == 0)
 }
 
-func demonstrateMethodChaining() {
+func demonstrateMultipleAssertions() {
 	mock := &mockT{}
 	assert := assertions.New(mock)
 
-	// Method chaining for related assertions
+	// Multiple related assertions
 	user := User{
 		ID:       123,
 		Username: "alice",
@@ -263,33 +263,33 @@ func demonstrateMethodChaining() {
 		},
 	}
 
-	// Chain multiple assertions for comprehensive validation
-	assert.Equal(user.ID, 123).
-		Equal(user.Username, "alice").
-		True(user.Active).
-		Contains(user.Email, "@").
-		Len(user.Roles, 2).
-		Contains(user.Roles, "admin").
-		Contains(user.Metadata, "source")
+	// Multiple assertions for comprehensive validation
+	assert.Equal(user.ID, 123)
+	assert.Equal(user.Username, "alice")
+	assert.True(user.Active)
+	assert.Contains(user.Email, "@")
+	assert.Len(user.Roles, 2)
+	assert.Contains(user.Roles, "admin")
+	assert.Contains(user.Metadata, "source")
 
-	fmt.Printf("✓ Method chaining test passed: %t\n", len(mock.errors) == 0)
+	fmt.Printf("✓ Multiple assertions test passed: %t\n", len(mock.errors) == 0)
 
-	// Demonstrate fluent assertion style for complex validation
+	// Demonstrate comprehensive validation
 	users := []User{
 		{ID: 1, Username: "alice", Active: true},
 		{ID: 2, Username: "bob", Active: false},
 		{ID: 3, Username: "charlie", Active: true},
 	}
 
-	assert.Len(users, 3).
-		True(users[0].Active).
-		False(users[1].Active).
-		Equal(users[2].Username, "charlie")
+	assert.Len(users, 3)
+	assert.True(users[0].Active)
+	assert.False(users[1].Active)
+	assert.Equal(users[2].Username, "charlie")
 
-	fmt.Printf("✓ Fluent style validation passed: %t\n", len(mock.errors) == 0)
+	fmt.Printf("✓ Comprehensive validation passed: %t\n", len(mock.errors) == 0)
 
 	if len(mock.errors) == 0 {
-		fmt.Println("🎉 All chained assertions completed successfully!")
+		fmt.Println("🎉 All assertions completed successfully!")
 	} else {
 		fmt.Printf("❌ Some assertions failed: %v\n", mock.errors)
 	}
@@ -303,10 +303,10 @@ func simulateFailure() {
 	assert := assertions.New(mock)
 
 	// These assertions will fail and generate error messages
-	assert.Equal(42, 24)                    // Numbers don't match
-	assert.True(false)                      // Boolean is false
-	assert.Contains("hello", "goodbye")     // String doesn't contain substring
-	assert.Len([]int{1, 2, 3}, 5)         // Wrong length
+	assert.Equal(42, 24)                // Numbers don't match
+	assert.True(false)                  // Boolean is false
+	assert.Contains("hello", "goodbye") // String doesn't contain substring
+	assert.Len([]int{1, 2, 3}, 5)       // Wrong length
 
 	fmt.Printf("Failed assertions captured: %d\n", len(mock.errors))
 	for i, err := range mock.errors {

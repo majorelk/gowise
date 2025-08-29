@@ -4,7 +4,6 @@ package custom
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -17,12 +16,14 @@ import (
 // DomainAssert extends the base Assert with domain-specific assertions
 type DomainAssert struct {
 	*assertions.Assert
+	t assertions.TestingT
 }
 
 // NewDomainAssert creates a new domain-specific assertion context
 func NewDomainAssert(t assertions.TestingT) *DomainAssert {
 	return &DomainAssert{
 		Assert: assertions.New(t),
+		t:      t,
 	}
 }
 
@@ -40,16 +41,16 @@ func (a *DomainAssert) HasEmailDomain(email, expectedDomain string) *DomainAsser
 		a.t.Errorf("HasEmailDomain: invalid email format: %q", email)
 		return a
 	}
-	
+
 	parts := strings.Split(email, "@")
 	if len(parts) != 2 {
 		a.t.Errorf("HasEmailDomain: invalid email format: %q", email)
 		return a
 	}
-	
+
 	domain := parts[1]
 	if domain != expectedDomain {
-		a.t.Errorf("HasEmailDomain: wrong email domain\n  got domain: %q\n  want domain: %q\n  full email: %q", 
+		a.t.Errorf("HasEmailDomain: wrong email domain\n  got domain: %q\n  want domain: %q\n  full email: %q",
 			domain, expectedDomain, email)
 	}
 	return a
@@ -58,7 +59,7 @@ func (a *DomainAssert) HasEmailDomain(email, expectedDomain string) *DomainAsser
 // HTTP Response Assertions
 func (a *DomainAssert) HasStatusCode(response *http.Response, expectedStatus int) *DomainAssert {
 	if response.StatusCode != expectedStatus {
-		a.t.Errorf("HasStatusCode: wrong HTTP status\n  got: %d (%s)\n  want: %d (%s)", 
+		a.t.Errorf("HasStatusCode: wrong HTTP status\n  got: %d (%s)\n  want: %d (%s)",
 			response.StatusCode, http.StatusText(response.StatusCode),
 			expectedStatus, http.StatusText(expectedStatus))
 	}
@@ -68,7 +69,7 @@ func (a *DomainAssert) HasStatusCode(response *http.Response, expectedStatus int
 func (a *DomainAssert) HasHeader(response *http.Response, headerName, expectedValue string) *DomainAssert {
 	actualValue := response.Header.Get(headerName)
 	if actualValue != expectedValue {
-		a.t.Errorf("HasHeader: wrong header value\n  header: %q\n  got: %q\n  want: %q", 
+		a.t.Errorf("HasHeader: wrong header value\n  header: %q\n  got: %q\n  want: %q",
 			headerName, actualValue, expectedValue)
 	}
 	return a
@@ -76,10 +77,10 @@ func (a *DomainAssert) HasHeader(response *http.Response, headerName, expectedVa
 
 func (a *DomainAssert) HasContentType(response *http.Response, expectedContentType string) *DomainAssert {
 	contentType := response.Header.Get("Content-Type")
-	
+
 	// Handle cases where content type might include charset
 	if !strings.HasPrefix(contentType, expectedContentType) {
-		a.t.Errorf("HasContentType: wrong content type\n  got: %q\n  want: %q (or with charset)", 
+		a.t.Errorf("HasContentType: wrong content type\n  got: %q\n  want: %q (or with charset)",
 			contentType, expectedContentType)
 	}
 	return a
@@ -100,28 +101,28 @@ func (a *DomainAssert) JSONHasKey(jsonData string, keyPath string) *DomainAssert
 		a.t.Errorf("JSONHasKey: invalid JSON format\n  error: %v", err)
 		return a
 	}
-	
+
 	// Simple key path traversal (supports dot notation like "user.profile.name")
 	keys := strings.Split(keyPath, ".")
 	current := data
-	
+
 	for i, key := range keys {
 		switch v := current.(type) {
 		case map[string]interface{}:
 			if val, exists := v[key]; exists {
 				current = val
 			} else {
-				a.t.Errorf("JSONHasKey: key not found\n  key path: %q\n  missing key: %q (at position %d)\n  available keys: %v", 
+				a.t.Errorf("JSONHasKey: key not found\n  key path: %q\n  missing key: %q (at position %d)\n  available keys: %v",
 					keyPath, key, i, getMapKeys(v))
 				return a
 			}
 		default:
-			a.t.Errorf("JSONHasKey: cannot traverse key path\n  key path: %q\n  stopped at: %q\n  current value type: %T", 
+			a.t.Errorf("JSONHasKey: cannot traverse key path\n  key path: %q\n  stopped at: %q\n  current value type: %T",
 				keyPath, key, current)
 			return a
 		}
 	}
-	
+
 	return a
 }
 
@@ -131,18 +132,18 @@ func (a *DomainAssert) JSONEquals(jsonData string, key string, expectedValue int
 		a.t.Errorf("JSONEquals: invalid JSON format\n  error: %v", err)
 		return a
 	}
-	
+
 	actualValue, exists := data[key]
 	if !exists {
 		a.t.Errorf("JSONEquals: key not found\n  key: %q\n  available keys: %v", key, getMapKeys(data))
 		return a
 	}
-	
+
 	if actualValue != expectedValue {
-		a.t.Errorf("JSONEquals: wrong value for key\n  key: %q\n  got: %v (%T)\n  want: %v (%T)", 
+		a.t.Errorf("JSONEquals: wrong value for key\n  key: %q\n  got: %v (%T)\n  want: %v (%T)",
 			key, actualValue, actualValue, expectedValue, expectedValue)
 	}
-	
+
 	return a
 }
 
@@ -160,9 +161,9 @@ func (a *DomainAssert) URLHasScheme(rawURL, expectedScheme string) *DomainAssert
 		a.t.Errorf("URLHasScheme: invalid URL format\n  URL: %q\n  error: %v", rawURL, err)
 		return a
 	}
-	
+
 	if parsed.Scheme != expectedScheme {
-		a.t.Errorf("URLHasScheme: wrong URL scheme\n  URL: %q\n  got scheme: %q\n  want scheme: %q", 
+		a.t.Errorf("URLHasScheme: wrong URL scheme\n  URL: %q\n  got scheme: %q\n  want scheme: %q",
 			rawURL, parsed.Scheme, expectedScheme)
 	}
 	return a
@@ -174,9 +175,9 @@ func (a *DomainAssert) URLHasHost(rawURL, expectedHost string) *DomainAssert {
 		a.t.Errorf("URLHasHost: invalid URL format\n  URL: %q\n  error: %v", rawURL, err)
 		return a
 	}
-	
+
 	if parsed.Host != expectedHost {
-		a.t.Errorf("URLHasHost: wrong URL host\n  URL: %q\n  got host: %q\n  want host: %q", 
+		a.t.Errorf("URLHasHost: wrong URL host\n  URL: %q\n  got host: %q\n  want host: %q",
 			rawURL, parsed.Host, expectedHost)
 	}
 	return a
@@ -186,7 +187,7 @@ func (a *DomainAssert) URLHasHost(rawURL, expectedHost string) *DomainAssert {
 func (a *DomainAssert) IsRecentTime(timestamp time.Time, maxAge time.Duration) *DomainAssert {
 	age := time.Since(timestamp)
 	if age > maxAge {
-		a.t.Errorf("IsRecentTime: timestamp too old\n  timestamp: %v\n  age: %v\n  max age: %v", 
+		a.t.Errorf("IsRecentTime: timestamp too old\n  timestamp: %v\n  age: %v\n  max age: %v",
 			timestamp, age, maxAge)
 	}
 	return a
@@ -194,7 +195,7 @@ func (a *DomainAssert) IsRecentTime(timestamp time.Time, maxAge time.Duration) *
 
 func (a *DomainAssert) IsFutureTime(timestamp time.Time) *DomainAssert {
 	if !timestamp.After(time.Now()) {
-		a.t.Errorf("IsFutureTime: timestamp is not in the future\n  timestamp: %v\n  current time: %v", 
+		a.t.Errorf("IsFutureTime: timestamp is not in the future\n  timestamp: %v\n  current time: %v",
 			timestamp, time.Now())
 	}
 	return a
@@ -204,13 +205,13 @@ func (a *DomainAssert) IsWorkingHours(timestamp time.Time, timezone *time.Locati
 	localTime := timestamp.In(timezone)
 	hour := localTime.Hour()
 	weekday := localTime.Weekday()
-	
+
 	// Define working hours (9 AM to 5 PM, Monday to Friday)
 	isWeekday := weekday >= time.Monday && weekday <= time.Friday
 	isWorkingHour := hour >= 9 && hour < 17
-	
+
 	if !isWeekday || !isWorkingHour {
-		a.t.Errorf("IsWorkingHours: timestamp is outside working hours\n  timestamp: %v\n  local time: %v\n  hour: %d\n  weekday: %v", 
+		a.t.Errorf("IsWorkingHours: timestamp is outside working hours\n  timestamp: %v\n  local time: %v\n  hour: %d\n  weekday: %v",
 			timestamp, localTime, hour, weekday)
 	}
 	return a
@@ -223,7 +224,7 @@ func (a *DomainAssert) MatchesPattern(str, pattern string) *DomainAssert {
 		a.t.Errorf("MatchesPattern: invalid regex pattern\n  pattern: %q\n  error: %v", pattern, err)
 		return a
 	}
-	
+
 	if !matched {
 		a.t.Errorf("MatchesPattern: string does not match pattern\n  string: %q\n  pattern: %q", str, pattern)
 	}
@@ -233,7 +234,7 @@ func (a *DomainAssert) MatchesPattern(str, pattern string) *DomainAssert {
 func (a *DomainAssert) HasLength(str string, min, max int) *DomainAssert {
 	length := len(str)
 	if length < min || length > max {
-		a.t.Errorf("HasLength: string length outside valid range\n  string: %q\n  length: %d\n  valid range: %d-%d", 
+		a.t.Errorf("HasLength: string length outside valid range\n  string: %q\n  length: %d\n  valid range: %d-%d",
 			str, length, min, max)
 	}
 	return a
@@ -280,7 +281,7 @@ func (a *DomainAssert) HasUniqueElements(slice interface{}) *DomainAssert {
 	case []string:
 		seen := make(map[string]bool)
 		duplicates := []string{}
-		
+
 		for _, item := range s {
 			if seen[item] {
 				duplicates = append(duplicates, item)
@@ -288,15 +289,15 @@ func (a *DomainAssert) HasUniqueElements(slice interface{}) *DomainAssert {
 				seen[item] = true
 			}
 		}
-		
+
 		if len(duplicates) > 0 {
 			a.t.Errorf("HasUniqueElements: found duplicate elements\n  duplicates: %v", duplicates)
 		}
-		
+
 	case []int:
 		seen := make(map[int]bool)
 		duplicates := []int{}
-		
+
 		for _, item := range s {
 			if seen[item] {
 				duplicates = append(duplicates, item)
@@ -304,15 +305,15 @@ func (a *DomainAssert) HasUniqueElements(slice interface{}) *DomainAssert {
 				seen[item] = true
 			}
 		}
-		
+
 		if len(duplicates) > 0 {
 			a.t.Errorf("HasUniqueElements: found duplicate elements\n  duplicates: %v", duplicates)
 		}
-		
+
 	default:
 		a.t.Errorf("HasUniqueElements: unsupported type %T", slice)
 	}
-	
+
 	return a
 }
 
@@ -321,7 +322,7 @@ func (a *DomainAssert) IsSortedAscending(slice interface{}) *DomainAssert {
 	case []int:
 		for i := 1; i < len(s); i++ {
 			if s[i] < s[i-1] {
-				a.t.Errorf("IsSortedAscending: slice not sorted in ascending order\n  position %d: %d > %d", 
+				a.t.Errorf("IsSortedAscending: slice not sorted in ascending order\n  position %d: %d > %d",
 					i, s[i-1], s[i])
 				return a
 			}
@@ -329,7 +330,7 @@ func (a *DomainAssert) IsSortedAscending(slice interface{}) *DomainAssert {
 	case []string:
 		for i := 1; i < len(s); i++ {
 			if s[i] < s[i-1] {
-				a.t.Errorf("IsSortedAscending: slice not sorted in ascending order\n  position %d: %q > %q", 
+				a.t.Errorf("IsSortedAscending: slice not sorted in ascending order\n  position %d: %q > %q",
 					i, s[i-1], s[i])
 				return a
 			}
@@ -337,7 +338,7 @@ func (a *DomainAssert) IsSortedAscending(slice interface{}) *DomainAssert {
 	default:
 		a.t.Errorf("IsSortedAscending: unsupported type %T", slice)
 	}
-	
+
 	return a
 }
 
@@ -380,40 +381,38 @@ type Order struct {
 
 // Comprehensive domain assertion for complex business objects
 func (a *DomainAssert) IsValidUser(user User) *DomainAssert {
-	return a.True(user.ID > 0).
-		HasLength(user.Username, 3, 50).
-		IsAlphanumeric(user.Username).
-		IsValidEmail(user.Email).
-		IsValidUserAge(user.Age).
-		IsRecentTime(user.Created, 24*time.Hour)
+	a.True(user.ID > 0)
+	a.HasLength(user.Username, 3, 50)
+	a.IsAlphanumeric(user.Username)
+	a.IsValidEmail(user.Email)
+	a.IsValidUserAge(user.Age)
+	a.IsRecentTime(user.Created, 24*time.Hour)
+	return a
 }
 
 func (a *DomainAssert) IsValidProduct(product Product) *DomainAssert {
-	return a.True(product.ID > 0).
-		HasLength(product.Name, 1, 200).
-		IsValidPrice(product.Price).
-		HasLength(product.Category, 1, 50).
-		HasValidInventoryCount(product.InStock).
-		HasLength(product.Description, 0, 1000) // Optional field
+	a.True(product.ID > 0)
+	a.HasLength(product.Name, 1, 200)
+	a.IsValidPrice(product.Price)
+	a.HasLength(product.Category, 1, 50)
+	a.HasValidInventoryCount(product.InStock)
+	a.HasLength(product.Description, 0, 1000) // Optional field
+	return a
 }
 
 func (a *DomainAssert) IsValidOrder(order Order) *DomainAssert {
 	// Validate basic order properties
-	a.True(order.ID > 0).
-		True(order.UserID > 0).
-		True(len(order.Products) > 0).
-		IsValidPrice(order.Total).
-		Contains([]string{"pending", "processing", "completed", "cancelled"}, order.Status).
-		IsRecentTime(order.Created, 30*24*time.Hour) // Within last 30 days
-	
+	a.True(order.ID > 0)
+	a.True(order.UserID > 0)
+	a.True(len(order.Products) > 0)
+	a.IsValidPrice(order.Total)
+	a.Contains([]string{"pending", "processing", "completed", "cancelled"}, order.Status)
+	a.IsRecentTime(order.Created, 30*24*time.Hour) // Within last 30 days
+
 	// Validate all products in the order
-	for i, product := range order.Products {
+	for _, product := range order.Products {
 		a.IsValidProduct(product)
-		if a.Failed() {
-			a.t.Errorf("IsValidOrder: invalid product at index %d", i)
-			break
-		}
 	}
-	
+
 	return a
 }
