@@ -443,7 +443,7 @@ func TestAsyncOperations(t *testing.T) {
 		finalUser := createdUser
 		finalErr := err
 		mu.Unlock()
-		
+
 		assert.NoError(finalErr)
 		assert.Equal(finalUser.Username, "asyncuser")
 		assert.True(finalUser.ID > 0)
