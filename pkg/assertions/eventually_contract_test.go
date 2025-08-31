@@ -6,20 +6,28 @@ import (
 	"time"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // ContractEventually runs behavioural checks for any Eventually implementation.
 // This follows GoWise contract testing patterns to ensure all implementations
 // satisfy the same behavioural guarantees.
 func ContractEventually(t *testing.T, name string, newAssert func(t *testing.T) *Assert) {
 	t.Run(name+"/immediate_success", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		assert.Eventually(func() bool { return true }, 1*time.Second, 50*time.Millisecond)
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected immediate success, got error: %s", assert.Error())
+		
+		// Behavioral contract: immediate success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected immediate success (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run(name+"/delayed_success", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		var ready int32
 
 		go func() {
@@ -31,35 +39,46 @@ func ContractEventually(t *testing.T, name string, newAssert func(t *testing.T) 
 			return atomic.LoadInt32(&ready) == 1
 		}, 500*time.Millisecond, 25*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected delayed success, got error: %s", assert.Error())
+		// Behavioral contract: delayed success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected delayed success (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run(name+"/timeout_failure", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		assert.Eventually(func() bool { return false }, 100*time.Millisecond, 25*time.Millisecond)
-		if assert.Error() == "" {
-			t.Fatalf("behaviour: expected timeout error, got success")
+		
+		// Behavioral contract: timeout should call TestingT.Errorf exactly once
+		if len(mock.errorCalls) != 1 {
+			t.Fatalf("behaviour: expected timeout error (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
-		if !containsString(assert.Error(), "condition not met within timeout") {
-			t.Fatalf("behaviour: expected timeout message, got: %s", assert.Error())
+		if !containsString(mock.errorCalls[0], "condition not met within timeout") {
+			t.Fatalf("behaviour: expected timeout message, got: %s", mock.errorCalls[0])
 		}
 	})
 
 	t.Run(name+"/resource_cleanup", func(t *testing.T) {
 		// Test multiple assertions to ensure proper cleanup
 		for i := 0; i < 5; i++ {
-			assert := newAssert(t)
+			// Contract test: verify behavioral compliance through TestingT interface
+			mock := &behaviorMockT{}
+			assert := New(mock)
 			assert.Eventually(func() bool { return true }, 100*time.Millisecond, 10*time.Millisecond)
-			if assert.Error() != "" {
-				t.Fatalf("behaviour: cleanup test iteration %d failed: %s", i, assert.Error())
+			
+			// Behavioral contract: success should call no TestingT methods
+			if len(mock.errorCalls) != 0 {
+				t.Fatalf("behaviour: cleanup test iteration %d failed (expected no Errorf calls), got %d: %v", i, len(mock.errorCalls), mock.errorCalls)
 			}
 		}
 	})
 
 	t.Run(name+"/condition_evaluation_order", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		var callCount int32
 
 		assert.Eventually(func() bool {
@@ -67,8 +86,9 @@ func ContractEventually(t *testing.T, name string, newAssert func(t *testing.T) 
 			return count >= 3
 		}, 500*time.Millisecond, 50*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected success after 3 calls, got error: %s", assert.Error())
+		// Behavioral contract: success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected success after 3 calls (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
 		finalCount := atomic.LoadInt32(&callCount)

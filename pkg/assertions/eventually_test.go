@@ -101,17 +101,20 @@ func TestEventually(t *testing.T) {
 	})
 
 	t.Run("ReportsTimingInError", func(t *testing.T) {
-		assert := New(&mockT{})
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		assert.Eventually(func() bool {
 			return false
 		}, 100*time.Millisecond, 20*time.Millisecond)
 
-		errorMsg := assert.Error()
-		if errorMsg == "" {
-			t.Fatal("Expected error message")
+		// Framework behavior: FAIL = exactly 1 Errorf call (timeout exceeded)
+		if len(mock.errorCalls) != 1 {
+			t.Fatalf("Eventually should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
+		errorMsg := mock.errorCalls[0]
 		// Check that error contains timing information
 		expectedFields := []string{"timeout:", "elapsed:", "attempts:", "final interval:"}
 		for _, field := range expectedFields {
