@@ -11,6 +11,25 @@ import (
 	"time"
 )
 
+// behaviorMockT is a proper TestingT implementation that captures test behavior
+type behaviorMockT struct {
+	errorCalls []string
+	failNowCalls int
+	helperCalls int
+}
+
+func (m *behaviorMockT) Errorf(format string, args ...interface{}) {
+	m.errorCalls = append(m.errorCalls, fmt.Sprintf(format, args...))
+}
+
+func (m *behaviorMockT) FailNow() {
+	m.failNowCalls++
+}
+
+func (m *behaviorMockT) Helper() {
+	m.helperCalls++
+}
+
 // TestWithinTimeout tests the WithinTimeout assertion.
 func TestWithinTimeout(t *testing.T) {
 	t.Run("FunctionCompletesWithinTimeout", func(t *testing.T) {
@@ -193,53 +212,57 @@ func TestAssertions(t *testing.T) {
 	})
 
 	t.Run("NotEqual", func(t *testing.T) {
-		assert := New(t)
-
-		// Test cases
 		testCases := []struct {
+			name             string
 			expected, actual interface{}
-			pass             bool
+			shouldFail       bool
 		}{
-			{42, 42, false},
-			{42, 23, false},
-			{"hello", "world", false},
-			{true, true, false},
-			{false, true, false},
+			{"same values should fail", 42, 42, true},
+			{"different int values should pass", 42, 23, false},
+			{"different strings should pass", "hello", "world", false},
+			{"same booleans should fail", true, true, true},
+			{"different booleans should pass", false, true, false},
 		}
 
-		for i, tc := range testCases {
-			t.Run(fmt.Sprintf("Test case %d", i+1), func(t *testing.T) {
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				mock := &behaviorMockT{}
+				assert := New(mock)
+
 				assert.NotEqual(tc.expected, tc.actual)
 
-				if tc.pass && assert.Error() != "" {
-					t.Errorf("Test case %d failed, expected no error but got: %s", i+1, assert.Error())
-				} else if !tc.pass && assert.Error() == "" {
-					t.Errorf("Test case %d failed, expected an error but got none", i+1)
+				// Behavioral test: verify TestingT interface calls
+				if tc.shouldFail && len(mock.errorCalls) != 1 {
+					t.Errorf("Expected NotEqual to call Errorf once when it should fail, got %d calls", len(mock.errorCalls))
+				} else if !tc.shouldFail && len(mock.errorCalls) != 0 {
+					t.Errorf("Expected NotEqual not to call Errorf when it should pass, got %d calls: %v", len(mock.errorCalls), mock.errorCalls)
 				}
 			})
 		}
 	})
 
 	t.Run("True", func(t *testing.T) {
-		assert := New(t)
-
-		// Test cases
 		testCases := []struct {
-			value bool
-			pass  bool
+			name       string
+			value      bool
+			shouldFail bool
 		}{
-			{true, true},
-			{false, false},
+			{"true value should pass", true, false},
+			{"false value should fail", false, true},
 		}
 
-		for i, tc := range testCases {
-			t.Run(fmt.Sprintf("Test case %d", i+1), func(t *testing.T) {
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				mock := &behaviorMockT{}
+				assert := New(mock)
+
 				assert.True(tc.value)
 
-				if tc.pass && assert.Error() != "" {
-					t.Errorf("Test case %d failed, expected no error but got: %s", i+1, assert.Error())
-				} else if !tc.pass && assert.Error() == "" {
-					t.Errorf("Test case %d failed, expected an error but got none", i+1)
+				// Behavioral test: verify TestingT interface calls
+				if tc.shouldFail && len(mock.errorCalls) != 1 {
+					t.Errorf("Expected True to call Errorf once when it should fail, got %d calls", len(mock.errorCalls))
+				} else if !tc.shouldFail && len(mock.errorCalls) != 0 {
+					t.Errorf("Expected True not to call Errorf when it should pass, got %d calls: %v", len(mock.errorCalls), mock.errorCalls)
 				}
 			})
 		}

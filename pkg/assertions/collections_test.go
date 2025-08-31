@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestContainsAssertion tests the Contains assertion with various container types.
 func TestContainsAssertion(t *testing.T) {
 	t.Run("string contains substring", func(t *testing.T) {

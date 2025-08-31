@@ -277,16 +277,29 @@ func (a *Assert) reportError(got, want interface{}, message string) {
 	// Mark as failed
 	a.failed = true
 
+	// Set helper context for better stack traces
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	// Check if both values are strings and use diff for better error messages
 	if gotStr, gotOK := got.(string); gotOK {
 		if wantStr, wantOK := want.(string); wantOK {
 			a.reportStringError(gotStr, wantStr, message)
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
 
 	// Default error message for non-string types
 	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
+	// Call the TestingT interface to actually fail the test
+	if testingT, ok := a.t.(TestingT); ok {
+		testingT.Errorf("%s", a.errorMsg)
+	}
 }
 
 // reportCollectionError provides enhanced error messages for collection comparisons using diff infrastructure
@@ -505,7 +518,15 @@ func (a *Assert) Contains(container, item interface{}) *Assert {
 	if result.HasDiff {
 		if !a.failed {
 			a.failed = true
+			// Set helper context
+			if t, ok := a.t.(interface{ Helper() }); ok {
+				t.Helper()
+			}
 			a.reportCollectionError(result)
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 		}
 	}
 	return a
@@ -785,6 +806,10 @@ func (a *Assert) ErrorMatches(err error, pattern string) *Assert {
 		// Show raw pattern (no quotes) for better readability
 		a.errorMsg = fmt.Sprintf("expected error message to match pattern\n  pattern: %s\n  error:   %q", pattern, errorMessage)
 		a.failed = true
+		// Call the TestingT interface to actually fail the test
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 	}
 	return a
 }
@@ -847,7 +872,15 @@ func (a *Assert) Len(container interface{}, expectedLen int) *Assert {
 	if result.HasDiff {
 		if !a.failed {
 			a.failed = true
+			// Set helper context
+			if t, ok := a.t.(interface{ Helper() }); ok {
+				t.Helper()
+			}
 			a.reportCollectionError(result)
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 		}
 	}
 	return a
@@ -1035,6 +1068,10 @@ func (a *Assert) SliceDiff(got, want []int) *Assert {
 	if len(got) != len(want) {
 		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", len(got), len(want))
 		a.failed = true
+		// Call the TestingT interface to actually fail the test
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return a
 	}
 
@@ -1043,6 +1080,10 @@ func (a *Assert) SliceDiff(got, want []int) *Assert {
 		if gotVal != want[i] {
 			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %d\n  want: %d", i, gotVal, want[i])
 			a.failed = true
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return a
 		}
 	}
