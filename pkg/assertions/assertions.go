@@ -1389,7 +1389,12 @@ func defaultEventuallyConfig() EventuallyConfig {
 // Eventually asserts that a condition becomes true within a timeout period.
 // Uses configurable polling with optional exponential backoff.
 // Follows GoWise principles of deterministic timing and resource cleanup.
-func (a *Assert) Eventually(condition func() bool, timeout, interval time.Duration) {
+func (a *Assert) Eventually(condition func() bool, timeout, interval time.Duration) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1402,12 +1407,18 @@ func (a *Assert) Eventually(condition func() bool, timeout, interval time.Durati
 	}
 
 	a.eventuallyWithConfig(condition, config)
+	return a
 }
 
 // Never asserts that a condition never becomes true within a timeout period.
 // Uses configurable polling with optional exponential backoff.
 // Fails immediately if the condition becomes true at any point.
-func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) {
+func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1420,11 +1431,17 @@ func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) {
 	}
 
 	a.neverWithConfig(condition, config)
+	return a
 }
 
 // EventuallyWith asserts that a condition becomes true using custom configuration.
 // Provides fine-grained control over timeout, polling, and backoff behaviour.
-func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) {
+func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1441,11 +1458,17 @@ func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) 
 	}
 
 	a.eventuallyWithConfig(condition, config)
+	return a
 }
 
 // NeverWith asserts that a condition never becomes true using custom configuration.
 // Provides fine-grained control over timeout, polling, and backoff behaviour.
-func (a *Assert) NeverWith(condition func() bool, config EventuallyConfig) {
+func (a *Assert) NeverWith(condition func() bool, config EventuallyConfig) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1462,6 +1485,7 @@ func (a *Assert) NeverWith(condition func() bool, config EventuallyConfig) {
 	}
 
 	a.neverWithConfig(condition, config)
+	return a
 }
 
 // eventuallyWithConfig implements the core Eventually logic with proper resource management.
@@ -1579,7 +1603,12 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 
 // WithinTimeout asserts that a function completes execution within the specified timeout.
 // Uses proper resource management and provides detailed error messages with timing context.
-func (a *Assert) WithinTimeout(f func(), timeout time.Duration) {
+func (a *Assert) WithinTimeout(f func(), timeout time.Duration) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1613,11 +1642,11 @@ func (a *Assert) WithinTimeout(f func(), timeout time.Duration) {
 	select {
 	case <-done:
 		// Function completed successfully within timeout
-		return
+		return a
 	case <-ctx.Done():
 		// Timeout exceeded
 		elapsed := time.Since(startTime)
 		a.errorMsg = fmt.Sprintf("WithinTimeout: function did not complete within timeout\n  timeout: %v\n  elapsed: %v", timeout, elapsed)
-		return
+		return a
 	}
 }
