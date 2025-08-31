@@ -7,30 +7,38 @@ import (
 	"time"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestEventually tests the Eventually assertion with various scenarios.
 func TestEventually(t *testing.T) {
 	t.Run("SucceedsImmediately", func(t *testing.T) {
-		assert := New(&mockT{})
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		assert.Eventually(func() bool {
 			return true
 		}, 1*time.Second, 50*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Expected no error, got: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (condition succeeds immediately)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Eventually should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run("SucceedsAfterDelay", func(t *testing.T) {
-		assert := New(&mockT{})
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		var counter int32
 
 		assert.Eventually(func() bool {
 			return atomic.AddInt32(&counter, 1) >= 3
 		}, 1*time.Second, 50*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Expected no error, got: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (condition succeeds after delay)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Eventually should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
 		finalCount := atomic.LoadInt32(&counter)
@@ -40,7 +48,9 @@ func TestEventually(t *testing.T) {
 	})
 
 	t.Run("TimesOut", func(t *testing.T) {
-		assert := New(&mockT{})
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		startTime := time.Now()
 
 		assert.Eventually(func() bool {
@@ -48,13 +58,18 @@ func TestEventually(t *testing.T) {
 		}, 200*time.Millisecond, 50*time.Millisecond)
 
 		elapsed := time.Since(startTime)
-		if assert.Error() == "" {
-			t.Error("Expected timeout error, got no error")
+		
+		// Framework behavior: FAIL = exactly 1 Errorf call (timeout exceeded)
+		if len(mock.errorCalls) != 1 {
+			t.Errorf("Eventually should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
-		expectedError := "Eventually: condition not met within timeout"
-		if !containsString(assert.Error(), expectedError) {
-			t.Errorf("Expected error to contain %q, got: %s", expectedError, assert.Error())
+		// Verify error message content
+		if len(mock.errorCalls) > 0 {
+			expectedError := "Eventually: condition not met within timeout"
+			if !containsString(mock.errorCalls[0], expectedError) {
+				t.Errorf("Expected error to contain %q, got: %s", expectedError, mock.errorCalls[0])
+			}
 		}
 
 		// Verify it actually waited close to the timeout
@@ -64,7 +79,9 @@ func TestEventually(t *testing.T) {
 	})
 
 	t.Run("CountsAttempts", func(t *testing.T) {
-		assert := New(&mockT{})
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		var counter int32
 
 		assert.Eventually(func() bool {
@@ -72,8 +89,9 @@ func TestEventually(t *testing.T) {
 			return count >= 4 // Succeed on 4th attempt
 		}, 1*time.Second, 50*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Expected no error, got: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (condition succeeds on 4th attempt)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Eventually should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
 		finalCount := atomic.LoadInt32(&counter)

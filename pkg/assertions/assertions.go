@@ -1679,8 +1679,14 @@ func (a *Assert) eventuallyWithConfig(condition func() bool, config EventuallyCo
 		case <-ctx.Done():
 			// Timeout reached - report failure with timing context
 			elapsed := time.Since(startTime)
+			a.failed = true
 			a.errorMsg = fmt.Sprintf("Eventually: condition not met within timeout\n  timeout: %v\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 				config.Timeout, elapsed, attempts, currentInterval)
+			
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 
 		case <-ticker.C:
@@ -1723,8 +1729,14 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 	attempts++
 	if condition() {
 		elapsed := time.Since(startTime)
+		a.failed = true
 		a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  interval: %v",
 			elapsed, attempts, config.Interval)
+		
+		// Call the TestingT interface to actually fail the test
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -1742,8 +1754,14 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 			attempts++
 			if condition() {
 				elapsed := time.Since(startTime)
+				a.failed = true
 				a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 					elapsed, attempts, currentInterval)
+				
+				// Call the TestingT interface to actually fail the test
+				if testingT, ok := a.t.(TestingT); ok {
+					testingT.Errorf("%s", a.errorMsg)
+				}
 				return
 			}
 

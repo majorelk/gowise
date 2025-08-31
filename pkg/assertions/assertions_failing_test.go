@@ -10,6 +10,8 @@ import (
 	"testing"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 func TestAssertions_Failing(t *testing.T) {
 	t.Run("Equal", func(t *testing.T) {
 		assert := New(t)
