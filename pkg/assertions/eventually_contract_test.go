@@ -101,26 +101,36 @@ func ContractEventually(t *testing.T, name string, newAssert func(t *testing.T) 
 // ContractNever runs behavioural checks for any Never implementation.
 func ContractNever(t *testing.T, name string, newAssert func(t *testing.T) *Assert) {
 	t.Run(name+"/never_true_success", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		assert.Never(func() bool { return false }, 200*time.Millisecond, 40*time.Millisecond)
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected success when condition never true, got: %s", assert.Error())
+		
+		// Behavioral contract: success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected success when condition never true (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run(name+"/immediate_failure", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		assert.Never(func() bool { return true }, 200*time.Millisecond, 40*time.Millisecond)
-		if assert.Error() == "" {
-			t.Fatalf("behaviour: expected immediate failure when condition is true")
+		
+		// Behavioral contract: immediate failure should call TestingT.Errorf exactly once
+		if len(mock.errorCalls) != 1 {
+			t.Fatalf("behaviour: expected immediate failure (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
-		if !containsString(assert.Error(), "became true unexpectedly") {
-			t.Fatalf("behaviour: expected 'became true unexpectedly' message, got: %s", assert.Error())
+		if !containsString(mock.errorCalls[0], "became true unexpectedly") {
+			t.Fatalf("behaviour: expected 'became true unexpectedly' message, got: %s", mock.errorCalls[0])
 		}
 	})
 
 	t.Run(name+"/delayed_failure", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		var shouldFail int32
 
 		go func() {
@@ -132,20 +142,24 @@ func ContractNever(t *testing.T, name string, newAssert func(t *testing.T) *Asse
 			return atomic.LoadInt32(&shouldFail) == 1
 		}, 500*time.Millisecond, 30*time.Millisecond)
 
-		if assert.Error() == "" {
-			t.Fatalf("behaviour: expected failure when condition becomes true")
+		// Behavioral contract: delayed failure should call TestingT.Errorf exactly once
+		if len(mock.errorCalls) != 1 {
+			t.Fatalf("behaviour: expected failure when condition becomes true (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run(name+"/timing_accuracy", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		startTime := time.Now()
 
 		assert.Never(func() bool { return false }, 150*time.Millisecond, 25*time.Millisecond)
 
 		elapsed := time.Since(startTime)
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected success, got error: %s", assert.Error())
+		// Behavioral contract: success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected success (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
 		// Should wait close to the full timeout
@@ -158,20 +172,26 @@ func ContractNever(t *testing.T, name string, newAssert func(t *testing.T) *Asse
 // ContractEventuallyWith runs behavioural checks for EventuallyWith with various configurations.
 func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing.T) *Assert) {
 	t.Run(name+"/basic_config", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		config := EventuallyConfig{
 			Timeout:  300 * time.Millisecond,
 			Interval: 50 * time.Millisecond,
 		}
 
 		assert.EventuallyWith(func() bool { return true }, config)
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected success with basic config, got: %s", assert.Error())
+		
+		// Behavioral contract: success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected success with basic config (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run(name+"/exponential_backoff_behaviour", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		var attempts []time.Time
 
 		config := EventuallyConfig{
@@ -185,8 +205,9 @@ func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing
 			return len(attempts) >= 4
 		}, config)
 
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected success with backoff, got: %s", assert.Error())
+		// Behavioral contract: success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected success with backoff (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
 		if len(attempts) < 4 {
@@ -206,7 +227,9 @@ func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing
 	})
 
 	t.Run(name+"/max_interval_enforcement", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		var attempts []time.Time
 
 		config := EventuallyConfig{
@@ -221,8 +244,9 @@ func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing
 			return len(attempts) >= 6
 		}, config)
 
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected success with max interval, got: %s", assert.Error())
+		// Behavioral contract: success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected success with max interval (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
 		// Verify no interval exceeds MaxInterval (with tolerance)
@@ -235,7 +259,9 @@ func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing
 	})
 
 	t.Run(name+"/invalid_config_defaults", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		config := EventuallyConfig{
 			Timeout:       -1 * time.Second,        // Invalid
 			Interval:      -100 * time.Millisecond, // Invalid
@@ -243,8 +269,10 @@ func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing
 		}
 
 		assert.EventuallyWith(func() bool { return true }, config)
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected success with corrected defaults, got: %s", assert.Error())
+		
+		// Behavioral contract: success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected success with corrected defaults (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 }
@@ -252,14 +280,17 @@ func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing
 // ContractErrorReporting runs behavioural checks for error message quality.
 func ContractErrorReporting(t *testing.T, name string, newAssert func(t *testing.T) *Assert) {
 	t.Run(name+"/timeout_error_content", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		assert.Eventually(func() bool { return false }, 100*time.Millisecond, 20*time.Millisecond)
 
-		errorMsg := assert.Error()
-		if errorMsg == "" {
-			t.Fatalf("behaviour: expected error message for timeout")
+		// Behavioral contract: timeout should call TestingT.Errorf exactly once
+		if len(mock.errorCalls) != 1 {
+			t.Fatalf("behaviour: expected timeout error (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
-
+		
+		errorMsg := mock.errorCalls[0]
 		// Error should contain timing information
 		requiredFields := []string{"timeout:", "elapsed:", "attempts:"}
 		for _, field := range requiredFields {
@@ -270,14 +301,17 @@ func ContractErrorReporting(t *testing.T, name string, newAssert func(t *testing
 	})
 
 	t.Run(name+"/never_error_content", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		assert.Never(func() bool { return true }, 100*time.Millisecond, 20*time.Millisecond)
 
-		errorMsg := assert.Error()
-		if errorMsg == "" {
-			t.Fatalf("behaviour: expected error message for Never failure")
+		// Behavioral contract: failure should call TestingT.Errorf exactly once
+		if len(mock.errorCalls) != 1 {
+			t.Fatalf("behaviour: expected Never failure (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
-
+		
+		errorMsg := mock.errorCalls[0]
 		requiredFields := []string{"became true unexpectedly", "elapsed:", "attempts:"}
 		for _, field := range requiredFields {
 			if !containsString(errorMsg, field) {
@@ -287,11 +321,14 @@ func ContractErrorReporting(t *testing.T, name string, newAssert func(t *testing
 	})
 
 	t.Run(name+"/clear_success_state", func(t *testing.T) {
-		assert := newAssert(t)
+		// Contract test: verify behavioral compliance through TestingT interface
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		assert.Eventually(func() bool { return true }, 100*time.Millisecond, 20*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Fatalf("behaviour: expected empty error on success, got: %s", assert.Error())
+		// Behavioral contract: success should call no TestingT methods
+		if len(mock.errorCalls) != 0 {
+			t.Fatalf("behaviour: expected clear success state (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 }
@@ -391,7 +428,9 @@ func TestConcurrentContractCompliance(t *testing.T) {
 				defer func() { done <- true }()
 
 				for j := 0; j < assertionsPerGoroutine; j++ {
-					assert := New(&mockT{})
+					// Contract test: verify behavioral compliance through TestingT interface
+					mock := &behaviorMockT{}
+					assert := New(mock)
 					var ready int32
 
 					go func() {
@@ -403,8 +442,9 @@ func TestConcurrentContractCompliance(t *testing.T) {
 						return atomic.LoadInt32(&ready) == 1
 					}, 500*time.Millisecond, 20*time.Millisecond)
 
-					if assert.Error() != "" {
-						t.Errorf("Goroutine %d assertion %d failed: %s", id, j, assert.Error())
+					// Behavioral contract: success should call no TestingT methods
+					if len(mock.errorCalls) != 0 {
+						t.Errorf("Goroutine %d assertion %d should pass (no Errorf calls), got %d: %v", id, j, len(mock.errorCalls), mock.errorCalls)
 					}
 				}
 			}(i)
