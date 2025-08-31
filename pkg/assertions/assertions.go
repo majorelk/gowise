@@ -548,30 +548,44 @@ func (a *Assert) HasSuffix(s, suffix string) *Assert {
 	return a
 }
 
-// InDelta asserts that the difference between two numeric values is within a certain range.
-func (a *Assert) InDelta(expected, actual, delta float64) *Assert {
+// WithinTolerance asserts that the difference between two numeric values is within a certain tolerance.
+// This is useful for floating-point comparisons where exact equality is not reliable.
+func (a *Assert) WithinTolerance(expected, actual, tolerance float64) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
 		return a
 	}
 
-	if math.Abs(expected-actual) > delta {
-		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %v", delta))
+	if math.Abs(expected-actual) > tolerance {
+		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within tolerance %v", tolerance))
 	}
 	return a
 }
 
-// InEpsilon asserts that the difference between two numeric values is within a certain percentage.
-func (a *Assert) InEpsilon(expected, actual, epsilon float64) *Assert {
+// InDelta is an alias for WithinTolerance for backward compatibility.
+// Deprecated: Use WithinTolerance for better readability.
+func (a *Assert) InDelta(expected, actual, delta float64) *Assert {
+	return a.WithinTolerance(expected, actual, delta)
+}
+
+// WithinPercentage asserts that the difference between two numeric values is within a certain percentage.
+// The percentage should be expressed as a decimal (e.g., 0.1 for 10%).
+func (a *Assert) WithinPercentage(expected, actual, percentage float64) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
 		return a
 	}
 
-	if math.Abs((expected-actual)/((expected+actual)/2)) > epsilon {
-		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %v percent", epsilon*100))
+	if math.Abs((expected-actual)/((expected+actual)/2)) > percentage {
+		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %.1f percent", percentage*100))
 	}
 	return a
+}
+
+// InEpsilon is an alias for WithinPercentage for backward compatibility.
+// Deprecated: Use WithinPercentage for better readability.
+func (a *Assert) InEpsilon(expected, actual, epsilon float64) *Assert {
+	return a.WithinPercentage(expected, actual, epsilon)
 }
 
 // Regexp asserts that a string matches a regular expression.
@@ -638,7 +652,11 @@ func (a *Assert) HasError(err error) *Assert {
 
 // ErrorIs asserts that an error matches a target error using errors.Is.
 // This follows Go 1.13+ error wrapping patterns.
-func (a *Assert) ErrorIs(err, target error) {
+func (a *Assert) ErrorIs(err, target error) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -646,11 +664,16 @@ func (a *Assert) ErrorIs(err, target error) {
 	if !errors.Is(err, target) {
 		a.reportError(target, err, "expected error to match target")
 	}
+	return a
 }
 
 // ErrorAs asserts that an error can be assigned to a target type using errors.As.
 // This follows Go 1.13+ error wrapping patterns.
-func (a *Assert) ErrorAs(err error, target interface{}) {
+func (a *Assert) ErrorAs(err error, target interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -658,23 +681,29 @@ func (a *Assert) ErrorAs(err error, target interface{}) {
 	if !errors.As(err, target) {
 		a.reportError(reflect.TypeOf(target).Elem(), err, "expected error to be assignable to target type")
 	}
+	return a
 }
 
 // ErrorContains asserts that an error's message contains a specific substring.
-func (a *Assert) ErrorContains(err error, substring string) {
+func (a *Assert) ErrorContains(err error, substring string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	if err == nil {
 		a.reportError(substring, nil, "expected error but got nil")
-		return
+		return a
 	}
 
 	errorMessage := err.Error()
 	if !strings.Contains(errorMessage, substring) {
 		a.reportError(substring, errorMessage, "expected error message to contain")
 	}
+	return a
 }
 
 // ErrorMatches asserts that an error's message matches a regular expression pattern.
@@ -833,7 +862,11 @@ func (a *Assert) MatchesPattern(pattern, s string) {
 }
 
 // Panics asserts that a certain function panics.
-func (a *Assert) Panics(f func()) {
+func (a *Assert) Panics(f func()) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -845,10 +878,15 @@ func (a *Assert) Panics(f func()) {
 	}()
 
 	f()
+	return a
 }
 
 // PanicsWith asserts that a certain function panics with a specific value.
-func (a *Assert) PanicsWith(f func(), expected interface{}) {
+func (a *Assert) PanicsWith(f func(), expected interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -860,10 +898,15 @@ func (a *Assert) PanicsWith(f func(), expected interface{}) {
 	}()
 
 	f()
+	return a
 }
 
 // NotPanics asserts that a certain function does not panic.
-func (a *Assert) NotPanics(f func()) {
+func (a *Assert) NotPanics(f func()) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -875,6 +918,7 @@ func (a *Assert) NotPanics(f func()) {
 	}()
 
 	f()
+	return a
 }
 
 // SliceDiff asserts that two slices are equal with enhanced diff output for failures.
