@@ -33,7 +33,7 @@ func (m *mockT) FailNow() {
 func (m *mockT) Helper() {}
 
 func main() {
-	fmt.Println("=== GoWise Fluent Chaining Examples ===\n")
+	fmt.Println("=== GoWise Fluent Chaining Examples ===")
 
 	// Example 1: Traditional approach vs Fluent chaining
 	fmt.Println("1. Before and After Comparison:")
@@ -44,7 +44,7 @@ func main() {
 	fmt.Println("")
 	fmt.Println("   After (fluent chaining):")
 	fmt.Println("   assert.Equal(user.ID, 123).True(user.Active).Contains(user.Email, \"@\")")
-	fmt.Println("")
+	fmt.Println()
 
 	// Example 2: Successful chaining
 	fmt.Println("2. Successful Chaining:")
