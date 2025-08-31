@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestNilAssertions tests the Nil assertion across different types.
 func TestNilAssertions(t *testing.T) {
 	tests := []struct {
@@ -50,15 +52,17 @@ func TestNilAssertions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert := New(t)
+			// Test GoWise framework behavioral contract
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.Nil(tt.value)
 
-			hasError := assert.Error() != ""
-			if tt.shouldPass && hasError {
-				t.Errorf("Expected pass but got error: %s", assert.Error())
-			} else if !tt.shouldPass && !hasError {
-				t.Errorf("Expected failure but assertion passed")
+			// Framework behavior: PASS = no Errorf calls, FAIL = exactly 1 Errorf call
+			if tt.shouldPass && len(mock.errorCalls) != 0 {
+				t.Errorf("Nil should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
+			} else if !tt.shouldPass && len(mock.errorCalls) != 1 {
+				t.Errorf("Nil should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
 		})
 	}
@@ -109,15 +113,17 @@ func TestNotNilAssertions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert := New(t)
+			// Test GoWise framework behavioral contract
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.NotNil(tt.value)
 
-			hasError := assert.Error() != ""
-			if tt.shouldPass && hasError {
-				t.Errorf("Expected pass but got error: %s", assert.Error())
-			} else if !tt.shouldPass && !hasError {
-				t.Errorf("Expected failure but assertion passed")
+			// Framework behavior: PASS = no Errorf calls, FAIL = exactly 1 Errorf call
+			if tt.shouldPass && len(mock.errorCalls) != 0 {
+				t.Errorf("NotNil should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
+			} else if !tt.shouldPass && len(mock.errorCalls) != 1 {
+				t.Errorf("NotNil should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
 		})
 	}
@@ -133,42 +139,31 @@ func TestTypedVsUntypedNil(t *testing.T) {
 		var typedNilChan chan int = nil
 		var typedNilFunc func() = nil
 
-		assert := New(t)
-
-		// All should be detected as nil
-		assert.Nil(untypedNil)
-		if assert.Error() != "" {
-			t.Errorf("Untyped nil should be nil: %s", assert.Error())
+		tests := []struct {
+			name  string
+			value interface{}
+		}{
+			{"untyped nil", untypedNil},
+			{"typed nil pointer", typedNilPointer},
+			{"typed nil slice", typedNilSlice},
+			{"typed nil map", typedNilMap},
+			{"typed nil channel", typedNilChan},
+			{"typed nil function", typedNilFunc},
 		}
 
-		assert = New(t) // reset
-		assert.Nil(typedNilPointer)
-		if assert.Error() != "" {
-			t.Errorf("Typed nil pointer should be nil: %s", assert.Error())
-		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				// Test GoWise framework behavioral contract - all should be detected as nil
+				mock := &behaviorMockT{}
+				assert := New(mock)
 
-		assert = New(t) // reset
-		assert.Nil(typedNilSlice)
-		if assert.Error() != "" {
-			t.Errorf("Typed nil slice should be nil: %s", assert.Error())
-		}
+				assert.Nil(tt.value)
 
-		assert = New(t) // reset
-		assert.Nil(typedNilMap)
-		if assert.Error() != "" {
-			t.Errorf("Typed nil map should be nil: %s", assert.Error())
-		}
-
-		assert = New(t) // reset
-		assert.Nil(typedNilChan)
-		if assert.Error() != "" {
-			t.Errorf("Typed nil channel should be nil: %s", assert.Error())
-		}
-
-		assert = New(t) // reset
-		assert.Nil(typedNilFunc)
-		if assert.Error() != "" {
-			t.Errorf("Typed nil function should be nil: %s", assert.Error())
+				// Framework behavior: PASS = no Errorf calls (all should be nil)
+				if len(mock.errorCalls) != 0 {
+					t.Errorf("%s should be nil (no Errorf calls), got %d: %v", tt.name, len(mock.errorCalls), mock.errorCalls)
+				}
+			})
 		}
 	})
 
@@ -176,10 +171,15 @@ func TestTypedVsUntypedNil(t *testing.T) {
 		// Test the subtle case where an interface contains a typed nil
 		var err error = (*TestError)(nil) // interface containing typed nil
 
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
+
 		assert.Nil(err)
-		if assert.Error() != "" {
-			t.Errorf("Interface containing typed nil should be nil: %s", assert.Error())
+
+		// Framework behavior: PASS = no Errorf calls (should be detected as nil)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Interface containing typed nil should be nil (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 }

@@ -1811,7 +1811,13 @@ func (a *Assert) WithinTimeout(f func(), timeout time.Duration) *Assert {
 	case <-ctx.Done():
 		// Timeout exceeded
 		elapsed := time.Since(startTime)
+		a.failed = true
 		a.errorMsg = fmt.Sprintf("WithinTimeout: function did not complete within timeout\n  timeout: %v\n  elapsed: %v", timeout, elapsed)
+		
+		// Call the TestingT interface to actually fail the test
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return a
 	}
 }
