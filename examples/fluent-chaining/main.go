@@ -124,4 +124,3 @@ func main() {
 	fmt.Println("✓ Backward compatible - existing code continues to work")
 	fmt.Println("✓ Type-safe - all methods return *Assert for consistent chaining")
 }
-
