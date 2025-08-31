@@ -9,10 +9,14 @@ import (
 	"time"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestEventuallyIntegration tests Eventually assertions in real async scenarios.
 func TestEventuallyIntegration(t *testing.T) {
 	t.Run("HTTPServerReadiness", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		// Start server in background
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,13 +35,16 @@ func TestEventuallyIntegration(t *testing.T) {
 			return resp.StatusCode == http.StatusOK
 		}, 2*time.Second, 100*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Server readiness check failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (server becomes ready)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Server readiness check should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run("ConcurrentWorkersCompletion", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		const numWorkers = 5
 		var wg sync.WaitGroup
@@ -68,8 +75,9 @@ func TestEventuallyIntegration(t *testing.T) {
 
 		wg.Wait() // Ensure clean shutdown
 
-		if assert.Error() != "" {
-			t.Errorf("Workers completion check failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (all workers complete)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Workers completion check should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 

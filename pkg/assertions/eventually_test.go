@@ -128,37 +128,48 @@ func TestEventually(t *testing.T) {
 // TestNever tests the Never assertion with various scenarios.
 func TestNever(t *testing.T) {
 	t.Run("SucceedsWhenConditionNeverTrue", func(t *testing.T) {
-		assert := New(&mockT{})
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		assert.Never(func() bool {
 			return false // Never true
 		}, 200*time.Millisecond, 50*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Expected no error, got: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (condition never becomes true)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Never should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run("FailsWhenConditionBecomesTrue", func(t *testing.T) {
-		assert := New(&mockT{})
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		var counter int32
 
 		assert.Never(func() bool {
 			return atomic.AddInt32(&counter, 1) >= 3 // True on 3rd call
 		}, 1*time.Second, 50*time.Millisecond)
 
-		if assert.Error() == "" {
-			t.Error("Expected error when condition becomes true")
+		// Framework behavior: FAIL = exactly 1 Errorf call (condition becomes true unexpectedly)
+		if len(mock.errorCalls) != 1 {
+			t.Errorf("Never should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
-		expectedError := "Never: condition became true unexpectedly"
-		if !containsString(assert.Error(), expectedError) {
-			t.Errorf("Expected error to contain %q, got: %s", expectedError, assert.Error())
+		// Verify error message content
+		if len(mock.errorCalls) > 0 {
+			expectedError := "Never: condition became true unexpectedly"
+			if !containsString(mock.errorCalls[0], expectedError) {
+				t.Errorf("Expected error to contain %q, got: %s", expectedError, mock.errorCalls[0])
+			}
 		}
 	})
 
 	t.Run("FailsImmediatelyIfConditionTrueFirst", func(t *testing.T) {
-		assert := New(&mockT{})
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 		startTime := time.Now()
 
 		assert.Never(func() bool {
@@ -167,8 +178,9 @@ func TestNever(t *testing.T) {
 
 		elapsed := time.Since(startTime)
 
-		if assert.Error() == "" {
-			t.Error("Expected immediate failure")
+		// Framework behavior: FAIL = exactly 1 Errorf call (immediate failure)
+		if len(mock.errorCalls) != 1 {
+			t.Errorf("Never should fail immediately (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
 		// Should fail very quickly, not wait for timeout
