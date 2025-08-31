@@ -497,52 +497,94 @@ func (a *Assert) Contains(container, item interface{}) *Assert {
 }
 
 // Greater asserts that the first value is greater than the second.
-func (a *Assert) Greater(v1, v2 float64) {
+func (a *Assert) Greater(v1, v2 float64) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if v1 <= v2 {
 		a.reportError(v1, v2, "expected to be greater")
 	}
+	return a
 }
 
 // Less asserts that the first value is less than the second.
-func (a *Assert) Less(v1, v2 float64) {
+func (a *Assert) Less(v1, v2 float64) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if v1 >= v2 {
 		a.reportError(v1, v2, "expected to be less")
 	}
+	return a
 }
 
 // HasPrefix asserts that a string starts with a certain substring.
-func (a *Assert) HasPrefix(s, prefix string) {
+func (a *Assert) HasPrefix(s, prefix string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if !strings.HasPrefix(s, prefix) {
 		a.reportError(prefix, s, "expected to have prefix")
 	}
+	return a
 }
 
 // HasSuffix asserts that a string ends with a certain substring.
-func (a *Assert) HasSuffix(s, suffix string) {
+func (a *Assert) HasSuffix(s, suffix string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if !strings.HasSuffix(s, suffix) {
 		a.reportError(suffix, s, "expected to have suffix")
 	}
+	return a
 }
 
 // InDelta asserts that the difference between two numeric values is within a certain range.
-func (a *Assert) InDelta(expected, actual, delta float64) {
+func (a *Assert) InDelta(expected, actual, delta float64) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if math.Abs(expected-actual) > delta {
 		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %v", delta))
 	}
+	return a
 }
 
 // InEpsilon asserts that the difference between two numeric values is within a certain percentage.
-func (a *Assert) InEpsilon(expected, actual, epsilon float64) {
+func (a *Assert) InEpsilon(expected, actual, epsilon float64) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if math.Abs((expected-actual)/((expected+actual)/2)) > epsilon {
 		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %v percent", epsilon*100))
 	}
+	return a
 }
 
 // Regexp asserts that a string matches a regular expression.
-func (a *Assert) Regexp(pattern, str string) {
+func (a *Assert) Regexp(pattern, str string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if matched, _ := regexp.MatchString(pattern, str); !matched {
 		a.reportError(pattern, str, "expected to match regular expression")
 	}
+	return a
 }
 
 // NoError asserts that a function call returns no error.
@@ -661,7 +703,12 @@ func (a *Assert) ErrorMatches(err error, pattern string) {
 }
 
 // IsEmpty asserts that a given array, slice, map, or string is empty.
-func (a *Assert) IsEmpty(value interface{}) {
+func (a *Assert) IsEmpty(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	valueType := reflect.TypeOf(value)
 	switch valueType.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
@@ -671,10 +718,16 @@ func (a *Assert) IsEmpty(value interface{}) {
 	default:
 		a.reportError(nil, value, "invalid type for IsEmpty")
 	}
+	return a
 }
 
 // IsNotEmpty asserts that a given array, slice, map, or string is not empty.
-func (a *Assert) IsNotEmpty(value interface{}) {
+func (a *Assert) IsNotEmpty(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	valueType := reflect.TypeOf(value)
 	switch valueType.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
@@ -684,6 +737,7 @@ func (a *Assert) IsNotEmpty(value interface{}) {
 	default:
 		a.reportError(nil, value, "invalid type for IsNotEmpty")
 	}
+	return a
 }
 
 // Len asserts that a container has the expected length.
