@@ -139,7 +139,7 @@ func TestChainingPreservesFirstError(t *testing.T) {
 	}
 
 	errorMsg := result.Error()
-	
+
 	// Should contain the first error
 	if !chainTestContainsString(errorMsg, "first") || !chainTestContainsString(errorMsg, "FIRST") {
 		t.Errorf("Expected first error in message, got: %q", errorMsg)
@@ -154,7 +154,7 @@ func TestChainingPreservesFirstError(t *testing.T) {
 
 // chainTestContainsString checks if a string contains a substring (helper function).
 func chainTestContainsString(s, substr string) bool {
-	return len(substr) == 0 || (len(s) >= len(substr) && 
+	return len(substr) == 0 || (len(s) >= len(substr) &&
 		func() bool {
 			for i := 0; i <= len(s)-len(substr); i++ {
 				if s[i:i+len(substr)] == substr {

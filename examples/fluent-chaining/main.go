@@ -95,11 +95,11 @@ func main() {
 	assert3 := assertions.New(mock3)
 
 	result3 := assert3.
-		NoError(err).                    // Error assertion
-		NotNil(data["user"]).           // Nil assertion
-		Contains(data, "count").        // Map contains
-		Len(data["items"], 3).          // Length assertion
-		True(data["count"].(int) > 0)   // Boolean assertion
+		NoError(err).                 // Error assertion
+		NotNil(data["user"]).         // Nil assertion
+		Contains(data, "count").      // Map contains
+		Len(data["items"], 3).        // Length assertion
+		True(data["count"].(int) > 0) // Boolean assertion
 
 	fmt.Printf("   Complex chain succeeded: %v\n", !result3.HasFailed())
 	fmt.Printf("   Error: %q\n\n", result3.Error())
