@@ -110,6 +110,10 @@ func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
 
 // Equal asserts that two values are equal.
 // Uses fast-path comparison for comparable types, falls back to reflect.DeepEqual.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.Equal(user.ID, 123).True(user.Active).Contains(user.Email, "@")
 func (a *Assert) Equal(got, want interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -222,6 +226,10 @@ func (a *Assert) Same(got, want interface{}) *Assert {
 }
 
 // True asserts that a boolean condition is true.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.True(user.Active).Equal(user.Status, "enabled")
 func (a *Assert) True(condition bool) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -477,6 +485,10 @@ func isNil(value interface{}) bool {
 
 // Contains asserts that a container includes a specific item.
 // Supports strings (substring), slices, arrays, and maps (key lookup).
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.Contains(user.Roles, "admin").Len(user.Roles, 2)
 func (a *Assert) Contains(container, item interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -497,6 +509,10 @@ func (a *Assert) Contains(container, item interface{}) *Assert {
 }
 
 // Greater asserts that the first value is greater than the second.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.Greater(response.StatusCode, 199).Less(response.StatusCode, 300)
 func (a *Assert) Greater(v1, v2 float64) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -523,6 +539,10 @@ func (a *Assert) Less(v1, v2 float64) *Assert {
 }
 
 // HasPrefix asserts that a string starts with a certain substring.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.HasPrefix(url, "https://").Contains(url, "api")
 func (a *Assert) HasPrefix(s, prefix string) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -550,6 +570,10 @@ func (a *Assert) HasSuffix(s, suffix string) *Assert {
 
 // WithinTolerance asserts that the difference between two numeric values is within a certain tolerance.
 // This is useful for floating-point comparisons where exact equality is not reliable.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.WithinTolerance(response.Duration, 1.5, 0.1).True(response.Success)
 func (a *Assert) WithinTolerance(expected, actual, tolerance float64) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -570,6 +594,10 @@ func (a *Assert) InDelta(expected, actual, delta float64) *Assert {
 
 // WithinPercentage asserts that the difference between two numeric values is within a certain percentage.
 // The percentage should be expressed as a decimal (e.g., 0.1 for 10%).
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.WithinPercentage(actual, expected, 0.05).NoError(validationErr)
 func (a *Assert) WithinPercentage(expected, actual, percentage float64) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -602,6 +630,10 @@ func (a *Assert) Regexp(pattern, str string) *Assert {
 }
 
 // NoError asserts that a function call returns no error.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.NoError(err).True(result != nil).Contains(result.Status, "success")
 func (a *Assert) NoError(err error) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -685,6 +717,10 @@ func (a *Assert) ErrorAs(err error, target interface{}) *Assert {
 }
 
 // ErrorContains asserts that an error's message contains a specific substring.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.ErrorContains(err, "timeout").ErrorIs(err, context.DeadlineExceeded)
 func (a *Assert) ErrorContains(err error, substring string) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -771,6 +807,10 @@ func (a *Assert) IsNotEmpty(value interface{}) *Assert {
 
 // Len asserts that a container has the expected length.
 // Supports strings, slices, arrays, maps, and channels.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.Len(users, 3).Contains(users[0].Email, "@").True(len(users) > 0)
 func (a *Assert) Len(container interface{}, expectedLen int) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -862,6 +902,10 @@ func (a *Assert) MatchesPattern(pattern, s string) {
 }
 
 // Panics asserts that a certain function panics.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.Panics(func() { divide(1, 0) }).True(recovered)
 func (a *Assert) Panics(f func()) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {
@@ -1389,6 +1433,11 @@ func defaultEventuallyConfig() EventuallyConfig {
 // Eventually asserts that a condition becomes true within a timeout period.
 // Uses configurable polling with optional exponential backoff.
 // Follows GoWise principles of deterministic timing and resource cleanup.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//   assert.Eventually(func() bool { return service.IsReady() }, 5*time.Second, 100*time.Millisecond).
+//         True(service.Status == "running")
 func (a *Assert) Eventually(condition func() bool, timeout, interval time.Duration) *Assert {
 	// Fail-fast: if already failed, return immediately
 	if a.failed {

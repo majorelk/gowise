@@ -82,8 +82,21 @@ func main() {
 	fmt.Printf("   Chain failed: %v\n", result2.HasFailed())
 	fmt.Printf("   Error (only first failure): %q\n\n", result2.Error())
 
-	// Example 4: Complex chaining with different assertion types
-	fmt.Println("4. Complex Mixed Assertions:")
+	// Example 4: New readable tolerance methods
+	fmt.Println("4. Readable Tolerance Methods:")
+	mock3 := &mockT{}
+	assert3 := assertions.New(mock3)
+
+	result3 := assert3.
+		WithinTolerance(1.0, 1.05, 0.1).    // Much clearer than InDelta
+		WithinPercentage(100.0, 95.0, 0.1). // 10% tolerance - clearer than InEpsilon
+		Equal(user.ID, 123)
+
+	fmt.Printf("   Tolerance chain succeeded: %v\n", !result3.HasFailed())
+	fmt.Printf("   Error: %q\n\n", result3.Error())
+
+	// Example 5: Complex chaining with different assertion types
+	fmt.Println("5. Complex Mixed Assertions:")
 	var err error
 	data := map[string]interface{}{
 		"count": 42,
@@ -91,36 +104,51 @@ func main() {
 		"user":  &user,
 	}
 
-	mock3 := &mockT{}
-	assert3 := assertions.New(mock3)
+	mock4 := &mockT{}
+	assert4 := assertions.New(mock4)
 
-	result3 := assert3.
+	result4 := assert4.
 		NoError(err).                 // Error assertion
 		NotNil(data["user"]).         // Nil assertion
 		Contains(data, "count").      // Map contains
 		Len(data["items"], 3).        // Length assertion
 		True(data["count"].(int) > 0) // Boolean assertion
 
-	fmt.Printf("   Complex chain succeeded: %v\n", !result3.HasFailed())
-	fmt.Printf("   Error: %q\n\n", result3.Error())
+	fmt.Printf("   Complex chain succeeded: %v\n", !result4.HasFailed())
+	fmt.Printf("   Error: %q\n\n", result4.Error())
 
-	// Example 5: Error handling chain
-	fmt.Println("5. Error Handling Chain:")
-	mock4 := &mockT{}
-	assert4 := assertions.New(mock4)
+	// Example 6: Error handling chain
+	fmt.Println("6. Error Handling Chain:")
+	mock5 := &mockT{}
+	assert5 := assertions.New(mock5)
 
-	result4 := assert4.
+	result5 := assert5.
 		NoError(err).
 		Len(user.Roles, 2).
 		HasError(fmt.Errorf("expected error")) // This will fail
 
-	fmt.Printf("   Error handling failed as expected: %v\n", result4.HasFailed())
-	fmt.Printf("   Error: %q\n\n", result4.Error())
+	fmt.Printf("   Error handling failed as expected: %v\n", result5.HasFailed())
+	fmt.Printf("   Error: %q\n\n", result5.Error())
+
+	// Example 7: Backward compatibility with aliases
+	fmt.Println("7. Backward Compatibility (Aliases):")
+	mock6 := &mockT{}
+	assert6 := assertions.New(mock6)
+
+	result6 := assert6.
+		InDelta(1.0, 1.05, 0.1).     // Alias still works
+		InEpsilon(100.0, 95.0, 0.1). // Alias still works
+		Equal("test", "test")
+
+	fmt.Printf("   Alias compatibility succeeded: %v\n", !result6.HasFailed())
+	fmt.Printf("   Error: %q\n\n", result6.Error())
 
 	fmt.Println("=== Benefits of Fluent Chaining ===")
 	fmt.Println("✓ More readable - assertions read like natural language")
 	fmt.Println("✓ More concise - less repetition of 'assert' variable")
 	fmt.Println("✓ Fail-fast - stops at first failure, preserving context")
-	fmt.Println("✓ Backward compatible - existing code continues to work")
+	fmt.Println("✓ Clear naming - WithinTolerance vs confusing InDelta")
+	fmt.Println("✓ Backward compatible - aliases maintain cross-framework familiarity")
 	fmt.Println("✓ Type-safe - all methods return *Assert for consistent chaining")
+	fmt.Println("✓ QA-friendly - method names that non-Go experts can understand")
 }
