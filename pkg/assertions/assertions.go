@@ -85,6 +85,7 @@ const (
 type Assert struct {
 	t          interface{}
 	errorMsg   string
+	failed     bool       // Track if any assertion has failed (for fail-fast chaining)
 	diffFormat DiffFormat // Preferred format for multi-line string diffs
 }
 
@@ -102,44 +103,56 @@ func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
 	return &Assert{
 		t:          a.t,
 		errorMsg:   a.errorMsg,
+		failed:     a.failed,
 		diffFormat: format,
 	}
 }
 
 // Equal asserts that two values are equal.
 // Uses fast-path comparison for comparable types, falls back to reflect.DeepEqual.
-func (a *Assert) Equal(got, want interface{}) {
+func (a *Assert) Equal(got, want interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	// Fast path for nil comparison
 	if got == nil && want == nil {
-		return
+		return a
 	}
 	if (got == nil) != (want == nil) {
 		a.reportError(got, want, "values differ")
-		return
+		return a
 	}
 
 	// Fast path for comparable types using type assertion
 	if isComparable(got, want) && got == want {
-		return
+		return a
 	}
 	if isComparable(got, want) && got != want {
 		a.reportError(got, want, "values differ")
-		return
+		return a
 	}
 
 	// Fallback to deep equality
 	if !reflect.DeepEqual(got, want) {
 		a.reportError(got, want, "values differ")
 	}
+	return a
 }
 
 // NotEqual asserts that two values are not equal.
 // Uses fast-path comparison for comparable types, falls back to reflect.DeepEqual.
-func (a *Assert) NotEqual(got, want interface{}) {
+func (a *Assert) NotEqual(got, want interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -147,10 +160,10 @@ func (a *Assert) NotEqual(got, want interface{}) {
 	// Fast path for nil comparison
 	if got == nil && want == nil {
 		a.reportError(got, want, "values should not be equal")
-		return
+		return a
 	}
 	if (got == nil) != (want == nil) {
-		return // different nil states = not equal, which is what we want
+		return a // different nil states = not equal, which is what we want
 	}
 
 	// Fast path for comparable types
@@ -158,18 +171,24 @@ func (a *Assert) NotEqual(got, want interface{}) {
 		if got == want {
 			a.reportError(got, want, "values should not be equal")
 		}
-		return
+		return a
 	}
 
 	// Fallback to deep equality
 	if reflect.DeepEqual(got, want) {
 		a.reportError(got, want, "values should not be equal")
 	}
+	return a
 }
 
 // DeepEqual asserts that two values are deeply equal.
 // Always uses reflect.DeepEqual for thorough comparison.
-func (a *Assert) DeepEqual(got, want interface{}) {
+func (a *Assert) DeepEqual(got, want interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -177,11 +196,17 @@ func (a *Assert) DeepEqual(got, want interface{}) {
 	if !reflect.DeepEqual(got, want) {
 		a.reportError(got, want, "values differ")
 	}
+	return a
 }
 
 // Same asserts that two values have the same pointer identity.
 // Uses == comparison which tests for pointer identity.
-func (a *Assert) Same(got, want interface{}) {
+func (a *Assert) Same(got, want interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -189,14 +214,20 @@ func (a *Assert) Same(got, want interface{}) {
 	// Use == for pointer identity comparison
 	// This works for pointers, interfaces, channels, maps, slices, and functions
 	if got == want {
-		return
+		return a
 	}
 
 	a.reportError(got, want, "expected same pointer identity")
+	return a
 }
 
 // True asserts that a boolean condition is true.
-func (a *Assert) True(condition bool) {
+func (a *Assert) True(condition bool) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -204,10 +235,16 @@ func (a *Assert) True(condition bool) {
 	if !condition {
 		a.reportError(true, condition, "expected condition to be true")
 	}
+	return a
 }
 
 // False asserts that a boolean condition is false.
-func (a *Assert) False(condition bool) {
+func (a *Assert) False(condition bool) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -215,11 +252,21 @@ func (a *Assert) False(condition bool) {
 	if condition {
 		a.reportError(false, condition, "expected condition to be false")
 	}
+	return a
 }
 
 // reportError is a helper function to report test failures.
 // Uses lazy formatting and UK English.
+// For chaining: only reports the first error to preserve fail-fast behaviour.
 func (a *Assert) reportError(got, want interface{}, message string) {
+	// If already failed, don't overwrite the first error (fail-fast chaining)
+	if a.failed {
+		return
+	}
+
+	// Mark as failed
+	a.failed = true
+
 	// Check if both values are strings and use diff for better error messages
 	if gotStr, gotOK := got.(string); gotOK {
 		if wantStr, wantOK := want.(string); wantOK {
@@ -234,6 +281,8 @@ func (a *Assert) reportError(got, want interface{}, message string) {
 
 // reportCollectionError provides enhanced error messages for collection comparisons using diff infrastructure
 func (a *Assert) reportCollectionError(result diff.CollectionDiffResult) {
+	// Note: failure marking is handled by the caller
+
 	var errorMsg strings.Builder
 	errorMsg.WriteString(result.Summary)
 
@@ -247,6 +296,8 @@ func (a *Assert) reportCollectionError(result diff.CollectionDiffResult) {
 
 // reportStringError provides enhanced error messages for string comparisons using diff infrastructure
 func (a *Assert) reportStringError(got, want string, message string) {
+	// Note: failure marking is handled by the caller (reportError)
+
 	// Choose appropriate diff function based on string characteristics
 	var result diff.DiffResult
 
@@ -363,9 +414,19 @@ func (a *Assert) Error() string {
 	return a.errorMsg
 }
 
+// HasFailed returns true if any assertion in the chain has failed.
+// This enables fail-fast chaining behaviour.
+func (a *Assert) HasFailed() bool {
+	return a.failed
+}
+
 // Nil asserts that a value is nil.
 // Supports pointers, interfaces, slices, maps, channels, and functions.
-func (a *Assert) Nil(value interface{}) {
+func (a *Assert) Nil(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -373,11 +434,16 @@ func (a *Assert) Nil(value interface{}) {
 	if !isNil(value) {
 		a.reportError(nil, value, "expected value to be nil")
 	}
+	return a
 }
 
 // NotNil asserts that a value is not nil.
 // Supports pointers, interfaces, slices, maps, channels, and functions.
-func (a *Assert) NotNil(value interface{}) {
+func (a *Assert) NotNil(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -385,6 +451,7 @@ func (a *Assert) NotNil(value interface{}) {
 	if isNil(value) {
 		a.reportError("not nil", value, "expected value to not be nil")
 	}
+	return a
 }
 
 // isNil is a helper function to check if a value is nil.
@@ -410,15 +477,23 @@ func isNil(value interface{}) bool {
 
 // Contains asserts that a container includes a specific item.
 // Supports strings (substring), slices, arrays, and maps (key lookup).
-func (a *Assert) Contains(container, item interface{}) {
+func (a *Assert) Contains(container, item interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	result := diff.CollectionContainsDiff(container, item)
 	if result.HasDiff {
-		a.reportCollectionError(result)
+		if !a.failed {
+			a.failed = true
+			a.reportCollectionError(result)
+		}
 	}
+	return a
 }
 
 // Greater asserts that the first value is greater than the second.
@@ -471,7 +546,11 @@ func (a *Assert) Regexp(pattern, str string) {
 }
 
 // NoError asserts that a function call returns no error.
-func (a *Assert) NoError(err error) {
+func (a *Assert) NoError(err error) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -479,6 +558,7 @@ func (a *Assert) NoError(err error) {
 	if err != nil {
 		a.reportError("no error", err, "expected no error")
 	}
+	return a
 }
 
 // ErrorType asserts that a function call returns a specific error type.
@@ -499,7 +579,11 @@ func (a *Assert) ErrorType(expected, actual error) {
 }
 
 // HasError asserts that an error occurred (error is not nil).
-func (a *Assert) HasError(err error) {
+func (a *Assert) HasError(err error) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -507,6 +591,7 @@ func (a *Assert) HasError(err error) {
 	if err == nil {
 		a.reportError("an error", nil, "expected an error but got none")
 	}
+	return a
 }
 
 // ErrorIs asserts that an error matches a target error using errors.Is.
@@ -603,15 +688,23 @@ func (a *Assert) IsNotEmpty(value interface{}) {
 
 // Len asserts that a container has the expected length.
 // Supports strings, slices, arrays, maps, and channels.
-func (a *Assert) Len(container interface{}, expectedLen int) {
+func (a *Assert) Len(container interface{}, expectedLen int) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	result := diff.CollectionLenDiff(container, expectedLen)
 	if result.HasDiff {
-		a.reportCollectionError(result)
+		if !a.failed {
+			a.failed = true
+			a.reportCollectionError(result)
+		}
 	}
+	return a
 }
 
 // Implements asserts that an object implements a certain interface.
