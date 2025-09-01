@@ -126,7 +126,7 @@ func TestFluentChainingExamples(t *testing.T) {
 
 		// This should fail on HasError - passing nil when we expect an error
 		result := assert.
-			NoError(nil).      // Pass - no error
+			NoError(nil).       // Pass - no error
 			Len(user.Roles, 2). // Pass - correct length
 			HasError(nil)       // This will fail - nil when expecting error
 
@@ -190,7 +190,7 @@ func TestFluentChainingWithNewMethods(t *testing.T) {
 		assert := assertions.New(mock)
 
 		result := assert.
-			WithinTolerance(1.0, 1.02, 0.05). // Pass
+			WithinTolerance(1.0, 1.02, 0.05).    // Pass
 			WithinPercentage(100.0, 98.0, 0.05). // Pass (5% tolerance)
 			True(true)
 

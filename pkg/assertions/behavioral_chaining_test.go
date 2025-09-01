@@ -164,7 +164,7 @@ func TestBehavioralNonCircularVerification(t *testing.T) {
 	t.Run("MockIndependentOfAssertionLibrary", func(t *testing.T) {
 		// This test ensures our mock works independently of the assertion library
 		mock := &behaviorMockT{}
-		
+
 		// Direct mock testing - this should work regardless of assertion implementation
 		mock.Errorf("test message %d", 42)
 		mock.Helper()
@@ -192,7 +192,7 @@ func TestBehavioralNonCircularVerification(t *testing.T) {
 
 		// Execute operations that should call TestingT methods
 		assert.Equal(1, 2) // Should call Errorf
-		
+
 		// Verify TestingT interface was actually called
 		if len(mock.errorCalls) == 0 {
 			t.Fatal("Assertion library MUST call TestingT.Errorf on failures - this is a contract violation")

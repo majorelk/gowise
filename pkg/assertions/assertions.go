@@ -1397,7 +1397,7 @@ func (a *Assert) JsonEqual(expected, actual string) {
 
 	// Compare parsed objects
 	if !reflect.DeepEqual(obj1, obj2) {
-		// Objects differ - provide enhanced JSON string comparison  
+		// Objects differ - provide enhanced JSON string comparison
 		a.reportError(actual, expected, "JSON objects differ")
 	}
 }
@@ -1727,7 +1727,7 @@ func (a *Assert) eventuallyWithConfig(condition func() bool, config EventuallyCo
 			a.failed = true
 			a.errorMsg = fmt.Sprintf("Eventually: condition not met within timeout\n  timeout: %v\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 				config.Timeout, elapsed, attempts, currentInterval)
-			
+
 			// Call the TestingT interface to actually fail the test
 			if testingT, ok := a.t.(TestingT); ok {
 				testingT.Errorf("%s", a.errorMsg)
@@ -1777,7 +1777,7 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 		a.failed = true
 		a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  interval: %v",
 			elapsed, attempts, config.Interval)
-		
+
 		// Call the TestingT interface to actually fail the test
 		if testingT, ok := a.t.(TestingT); ok {
 			testingT.Errorf("%s", a.errorMsg)
@@ -1802,7 +1802,7 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 				a.failed = true
 				a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 					elapsed, attempts, currentInterval)
-				
+
 				// Call the TestingT interface to actually fail the test
 				if testingT, ok := a.t.(TestingT); ok {
 					testingT.Errorf("%s", a.errorMsg)
@@ -1876,7 +1876,7 @@ func (a *Assert) WithinTimeout(f func(), timeout time.Duration) *Assert {
 		elapsed := time.Since(startTime)
 		a.failed = true
 		a.errorMsg = fmt.Sprintf("WithinTimeout: function did not complete within timeout\n  timeout: %v\n  elapsed: %v", timeout, elapsed)
-		
+
 		// Call the TestingT interface to actually fail the test
 		if testingT, ok := a.t.(TestingT); ok {
 			testingT.Errorf("%s", a.errorMsg)

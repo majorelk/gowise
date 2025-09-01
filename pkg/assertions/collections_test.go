@@ -143,7 +143,7 @@ func TestContainsAssertion(t *testing.T) {
 
 	t.Run("edge cases", func(t *testing.T) {
 		// Test edge cases using behavioral pattern
-		
+
 		// Nil container should fail
 		mock1 := &behaviorMockT{}
 		assert1 := New(mock1)

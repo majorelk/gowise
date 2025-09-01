@@ -17,7 +17,7 @@ func ContractEventually(t *testing.T, name string, newAssert func(t *testing.T) 
 		mock := &behaviorMockT{}
 		assert := New(mock)
 		assert.Eventually(func() bool { return true }, 1*time.Second, 50*time.Millisecond)
-		
+
 		// Behavioral contract: immediate success should call no TestingT methods
 		if len(mock.errorCalls) != 0 {
 			t.Fatalf("behaviour: expected immediate success (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
@@ -50,7 +50,7 @@ func ContractEventually(t *testing.T, name string, newAssert func(t *testing.T) 
 		mock := &behaviorMockT{}
 		assert := New(mock)
 		assert.Eventually(func() bool { return false }, 100*time.Millisecond, 25*time.Millisecond)
-		
+
 		// Behavioral contract: timeout should call TestingT.Errorf exactly once
 		if len(mock.errorCalls) != 1 {
 			t.Fatalf("behaviour: expected timeout error (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
@@ -67,7 +67,7 @@ func ContractEventually(t *testing.T, name string, newAssert func(t *testing.T) 
 			mock := &behaviorMockT{}
 			assert := New(mock)
 			assert.Eventually(func() bool { return true }, 100*time.Millisecond, 10*time.Millisecond)
-			
+
 			// Behavioral contract: success should call no TestingT methods
 			if len(mock.errorCalls) != 0 {
 				t.Fatalf("behaviour: cleanup test iteration %d failed (expected no Errorf calls), got %d: %v", i, len(mock.errorCalls), mock.errorCalls)
@@ -105,7 +105,7 @@ func ContractNever(t *testing.T, name string, newAssert func(t *testing.T) *Asse
 		mock := &behaviorMockT{}
 		assert := New(mock)
 		assert.Never(func() bool { return false }, 200*time.Millisecond, 40*time.Millisecond)
-		
+
 		// Behavioral contract: success should call no TestingT methods
 		if len(mock.errorCalls) != 0 {
 			t.Fatalf("behaviour: expected success when condition never true (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
@@ -117,7 +117,7 @@ func ContractNever(t *testing.T, name string, newAssert func(t *testing.T) *Asse
 		mock := &behaviorMockT{}
 		assert := New(mock)
 		assert.Never(func() bool { return true }, 200*time.Millisecond, 40*time.Millisecond)
-		
+
 		// Behavioral contract: immediate failure should call TestingT.Errorf exactly once
 		if len(mock.errorCalls) != 1 {
 			t.Fatalf("behaviour: expected immediate failure (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
@@ -181,7 +181,7 @@ func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing
 		}
 
 		assert.EventuallyWith(func() bool { return true }, config)
-		
+
 		// Behavioral contract: success should call no TestingT methods
 		if len(mock.errorCalls) != 0 {
 			t.Fatalf("behaviour: expected success with basic config (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
@@ -269,7 +269,7 @@ func ContractEventuallyWith(t *testing.T, name string, newAssert func(t *testing
 		}
 
 		assert.EventuallyWith(func() bool { return true }, config)
-		
+
 		// Behavioral contract: success should call no TestingT methods
 		if len(mock.errorCalls) != 0 {
 			t.Fatalf("behaviour: expected success with corrected defaults (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
@@ -289,7 +289,7 @@ func ContractErrorReporting(t *testing.T, name string, newAssert func(t *testing
 		if len(mock.errorCalls) != 1 {
 			t.Fatalf("behaviour: expected timeout error (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
-		
+
 		errorMsg := mock.errorCalls[0]
 		// Error should contain timing information
 		requiredFields := []string{"timeout:", "elapsed:", "attempts:"}
@@ -310,7 +310,7 @@ func ContractErrorReporting(t *testing.T, name string, newAssert func(t *testing
 		if len(mock.errorCalls) != 1 {
 			t.Fatalf("behaviour: expected Never failure (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
-		
+
 		errorMsg := mock.errorCalls[0]
 		requiredFields := []string{"became true unexpectedly", "elapsed:", "attempts:"}
 		for _, field := range requiredFields {

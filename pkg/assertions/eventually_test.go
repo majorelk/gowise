@@ -58,7 +58,7 @@ func TestEventually(t *testing.T) {
 		}, 200*time.Millisecond, 50*time.Millisecond)
 
 		elapsed := time.Since(startTime)
-		
+
 		// Framework behavior: FAIL = exactly 1 Errorf call (timeout exceeded)
 		if len(mock.errorCalls) != 1 {
 			t.Errorf("Eventually should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
@@ -203,7 +203,7 @@ func TestNever(t *testing.T) {
 		if len(mock.errorCalls) != 1 {
 			t.Fatalf("Never should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
-		
+
 		errorMsg := mock.errorCalls[0]
 		// Check that error contains timing information
 		expectedFields := []string{"elapsed:", "attempts:"}
@@ -415,7 +415,7 @@ func TestResourceCleanup(t *testing.T) {
 			// Create fresh mock for each iteration to test behavioral contract
 			iterMock := &behaviorMockT{}
 			iterAssert := New(iterMock)
-			
+
 			iterAssert.Eventually(func() bool {
 				return true // Succeed immediately
 			}, 100*time.Millisecond, 10*time.Millisecond)
@@ -433,7 +433,7 @@ func TestResourceCleanup(t *testing.T) {
 			// Create fresh mock for each iteration to test behavioral contract
 			iterMock := &behaviorMockT{}
 			iterAssert := New(iterMock)
-			
+
 			iterAssert.Never(func() bool {
 				return false // Never true
 			}, 50*time.Millisecond, 10*time.Millisecond)

@@ -13,9 +13,9 @@ import (
 
 // behaviorMockT is a proper TestingT implementation that captures test behavior
 type behaviorMockT struct {
-	errorCalls []string
+	errorCalls   []string
 	failNowCalls int
-	helperCalls int
+	helperCalls  int
 }
 
 func (m *behaviorMockT) Errorf(format string, args ...interface{}) {
@@ -32,9 +32,10 @@ func (m *behaviorMockT) Helper() {
 
 // silentT is a quiet TestingT implementation for examples
 type silentT struct{ failed bool }
-func (t *silentT) Helper() {}
+
+func (t *silentT) Helper()                                   {}
 func (t *silentT) Errorf(format string, args ...interface{}) { t.failed = true }
-func (t *silentT) FailNow() { t.failed = true }
+func (t *silentT) FailNow()                                  { t.failed = true }
 
 // TestWithinTimeout tests the WithinTimeout assertion.
 func TestWithinTimeout(t *testing.T) {
