@@ -1132,15 +1132,23 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 
 	// Ensure both are slices
 	if gotReflect.Kind() != reflect.Slice {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("got is not a slice: %T", got)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Slice {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("want is not a slice: %T", want)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
@@ -1150,8 +1158,12 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 	gotLen := gotReflect.Len()
 	wantLen := wantReflect.Len()
 	if gotLen != wantLen {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", gotLen, wantLen)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
@@ -1163,8 +1175,12 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 		wantVal := wantReflect.Index(i).Interface()
 
 		if !reflect.DeepEqual(gotVal, wantVal) {
+			if !a.markAsFailed() {
+				return
+			}
 			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %v\n  want: %v", i, gotVal, wantVal)
 			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Helper()
 				testingT.Errorf("%s", a.errorMsg)
 			}
 			return
@@ -1187,15 +1203,23 @@ func (a *Assert) MapDiff(got, want any) {
 
 	// Ensure both are maps
 	if gotReflect.Kind() != reflect.Map {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("got is not a map: %T", got)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Map {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("want is not a map: %T", want)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
@@ -1205,9 +1229,13 @@ func (a *Assert) MapDiff(got, want any) {
 	wantKeys := wantReflect.MapKeys()
 	for _, wantKey := range wantKeys {
 		if !gotReflect.MapIndex(wantKey).IsValid() {
+			if !a.markAsFailed() {
+				return
+			}
 			wantValue := wantReflect.MapIndex(wantKey).Interface()
 			a.errorMsg = fmt.Sprintf("maps differ: missing key %q\n  expected value: %v", wantKey.Interface(), wantValue)
 			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Helper()
 				testingT.Errorf("%s", a.errorMsg)
 			}
 			return
@@ -1218,9 +1246,13 @@ func (a *Assert) MapDiff(got, want any) {
 	gotKeys := gotReflect.MapKeys()
 	for _, gotKey := range gotKeys {
 		if !wantReflect.MapIndex(gotKey).IsValid() {
+			if !a.markAsFailed() {
+				return
+			}
 			gotValue := gotReflect.MapIndex(gotKey).Interface()
 			a.errorMsg = fmt.Sprintf("maps differ: unexpected key %q\n  got value: %v", gotKey.Interface(), gotValue)
 			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Helper()
 				testingT.Errorf("%s", a.errorMsg)
 			}
 			return
@@ -1233,8 +1265,12 @@ func (a *Assert) MapDiff(got, want any) {
 		wantValue := wantReflect.MapIndex(key).Interface()
 
 		if !reflect.DeepEqual(gotValue, wantValue) {
+			if !a.markAsFailed() {
+				return
+			}
 			a.errorMsg = fmt.Sprintf("maps differ at key %q\n  got: %v\n  want: %v", key.Interface(), gotValue, wantValue)
 			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Helper()
 				testingT.Errorf("%s", a.errorMsg)
 			}
 			return
@@ -1257,15 +1293,23 @@ func (a *Assert) StructDiff(got, want any) {
 
 	// Ensure both are structs
 	if gotReflect.Kind() != reflect.Struct {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("got is not a struct: %T", got)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Struct {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("want is not a struct: %T", want)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
@@ -1275,8 +1319,12 @@ func (a *Assert) StructDiff(got, want any) {
 	gotType := gotReflect.Type()
 	wantType := wantReflect.Type()
 	if gotType != wantType {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("struct types differ: got %s, want %s", gotType, wantType)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
@@ -1296,8 +1344,12 @@ func (a *Assert) StructDiff(got, want any) {
 		wantFieldValue := wantReflect.Field(i).Interface()
 
 		if !reflect.DeepEqual(gotFieldValue, wantFieldValue) {
+			if !a.markAsFailed() {
+				return
+			}
 			a.errorMsg = fmt.Sprintf("structs differ at field %q\n  got: %v\n  want: %v", field.Name, gotFieldValue, wantFieldValue)
 			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Helper()
 				testingT.Errorf("%s", a.errorMsg)
 			}
 			return
@@ -1331,8 +1383,12 @@ func (a *Assert) DeepDiff(got, want any) {
 
 	// Check if types are different
 	if gotType != wantType {
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("types differ\n  got: %s\n  want: %s", gotType, wantType)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
@@ -1351,8 +1407,12 @@ func (a *Assert) DeepDiff(got, want any) {
 		return
 	default:
 		// For primitives and other types, provide basic comparison
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("values differ\n  got: %v\n  want: %v", got, want)
 		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Helper()
 			testingT.Errorf("%s", a.errorMsg)
 		}
 		return
