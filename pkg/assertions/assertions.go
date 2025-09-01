@@ -36,6 +36,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"gowise/pkg/assertions/internal/diff"
@@ -82,10 +83,11 @@ const (
 )
 
 // Assert is a struct that holds the testing context and error message.
+// Thread-safe for concurrent use across goroutines.
 type Assert struct {
 	t          interface{}
 	errorMsg   string
-	failed     bool       // Track if any assertion has failed (for fail-fast chaining)
+	failed     int32      // Track if any assertion has failed (for fail-fast chaining) - atomic
 	diffFormat DiffFormat // Preferred format for multi-line string diffs
 }
 
@@ -103,8 +105,79 @@ func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
 	return &Assert{
 		t:          a.t,
 		errorMsg:   a.errorMsg,
-		failed:     a.failed,
+		failed:     atomic.LoadInt32(&a.failed),
 		diffFormat: format,
+	}
+}
+
+// shouldSkipDueToFailure checks if we should skip this assertion due to fail-fast
+// Thread-safe for concurrent access.
+func (a *Assert) shouldSkipDueToFailure() bool {
+	return atomic.LoadInt32(&a.failed) != 0
+}
+
+// markAsFailed atomically marks this assertion chain as failed
+// Thread-safe for concurrent access.
+func (a *Assert) markAsFailed() bool {
+	return atomic.CompareAndSwapInt32(&a.failed, 0, 1)
+}
+
+// reportErrorConsistent provides consistent error reporting across all assertion methods
+func (a *Assert) reportErrorConsistent(got, want interface{}, message string) {
+	// Only report the first error (fail-fast chaining)
+	if !a.markAsFailed() {
+		return
+	}
+
+	// Set helper context for better stack traces
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	// Check if both values are strings and use diff for better error messages
+	if gotStr, gotOK := got.(string); gotOK {
+		if wantStr, wantOK := want.(string); wantOK {
+			a.reportStringError(gotStr, wantStr, message)
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
+			return
+		}
+	}
+
+	// Default error message for non-string types
+	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
+	// Call the TestingT interface to actually fail the test
+	if testingT, ok := a.t.(TestingT); ok {
+		testingT.Errorf("%s", a.errorMsg)
+	}
+}
+
+// reportCollectionErrorConsistent provides consistent collection error reporting
+func (a *Assert) reportCollectionErrorConsistent(result diff.CollectionDiffResult) {
+	// Only report the first error (fail-fast chaining)
+	if !a.markAsFailed() {
+		return
+	}
+
+	// Set helper context for better stack traces
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
+	var errorMsg strings.Builder
+	errorMsg.WriteString(result.Summary)
+
+	if result.Detail != "" {
+		errorMsg.WriteString("\n  ")
+		errorMsg.WriteString(strings.ReplaceAll(result.Detail, "\n", "\n  "))
+	}
+
+	a.errorMsg = errorMsg.String()
+	// Call the TestingT interface to actually fail the test
+	if testingT, ok := a.t.(TestingT); ok {
+		testingT.Errorf("%s", a.errorMsg)
 	}
 }
 
@@ -117,7 +190,7 @@ func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
 //	assert.Equal(user.ID, 123).True(user.Active).Contains(user.Email, "@")
 func (a *Assert) Equal(got, want interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -130,7 +203,7 @@ func (a *Assert) Equal(got, want interface{}) *Assert {
 		return a
 	}
 	if (got == nil) != (want == nil) {
-		a.reportError(got, want, "values differ")
+		a.reportErrorConsistent(got, want, "values differ")
 		return a
 	}
 
@@ -139,13 +212,13 @@ func (a *Assert) Equal(got, want interface{}) *Assert {
 		return a
 	}
 	if isComparable(got, want) && got != want {
-		a.reportError(got, want, "values differ")
+		a.reportErrorConsistent(got, want, "values differ")
 		return a
 	}
 
 	// Fallback to deep equality
 	if !reflect.DeepEqual(got, want) {
-		a.reportError(got, want, "values differ")
+		a.reportErrorConsistent(got, want, "values differ")
 	}
 	return a
 }
@@ -154,7 +227,7 @@ func (a *Assert) Equal(got, want interface{}) *Assert {
 // Uses fast-path comparison for comparable types, falls back to reflect.DeepEqual.
 func (a *Assert) NotEqual(got, want interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -164,7 +237,7 @@ func (a *Assert) NotEqual(got, want interface{}) *Assert {
 
 	// Fast path for nil comparison
 	if got == nil && want == nil {
-		a.reportError(got, want, "values should not be equal")
+		a.reportErrorConsistent(got, want, "values should not be equal")
 		return a
 	}
 	if (got == nil) != (want == nil) {
@@ -174,14 +247,14 @@ func (a *Assert) NotEqual(got, want interface{}) *Assert {
 	// Fast path for comparable types
 	if isComparable(got, want) {
 		if got == want {
-			a.reportError(got, want, "values should not be equal")
+			a.reportErrorConsistent(got, want, "values should not be equal")
 		}
 		return a
 	}
 
 	// Fallback to deep equality
 	if reflect.DeepEqual(got, want) {
-		a.reportError(got, want, "values should not be equal")
+		a.reportErrorConsistent(got, want, "values should not be equal")
 	}
 	return a
 }
@@ -190,7 +263,7 @@ func (a *Assert) NotEqual(got, want interface{}) *Assert {
 // Always uses reflect.DeepEqual for thorough comparison.
 func (a *Assert) DeepEqual(got, want interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -199,7 +272,7 @@ func (a *Assert) DeepEqual(got, want interface{}) *Assert {
 	}
 
 	if !reflect.DeepEqual(got, want) {
-		a.reportError(got, want, "values differ")
+		a.reportErrorConsistent(got, want, "values differ")
 	}
 	return a
 }
@@ -208,7 +281,7 @@ func (a *Assert) DeepEqual(got, want interface{}) *Assert {
 // Uses == comparison which tests for pointer identity.
 func (a *Assert) Same(got, want interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -222,7 +295,7 @@ func (a *Assert) Same(got, want interface{}) *Assert {
 		return a
 	}
 
-	a.reportError(got, want, "expected same pointer identity")
+	a.reportErrorConsistent(got, want, "expected same pointer identity")
 	return a
 }
 
@@ -234,7 +307,7 @@ func (a *Assert) Same(got, want interface{}) *Assert {
 //	assert.True(user.Active).Equal(user.Status, "enabled")
 func (a *Assert) True(condition bool) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -243,7 +316,7 @@ func (a *Assert) True(condition bool) *Assert {
 	}
 
 	if !condition {
-		a.reportError(true, condition, "expected condition to be true")
+		a.reportErrorConsistent(true, condition, "expected condition to be true")
 	}
 	return a
 }
@@ -251,7 +324,7 @@ func (a *Assert) True(condition bool) *Assert {
 // False asserts that a boolean condition is false.
 func (a *Assert) False(condition bool) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -260,7 +333,7 @@ func (a *Assert) False(condition bool) *Assert {
 	}
 
 	if condition {
-		a.reportError(false, condition, "expected condition to be false")
+		a.reportErrorConsistent(false, condition, "expected condition to be false")
 	}
 	return a
 }
@@ -270,12 +343,12 @@ func (a *Assert) False(condition bool) *Assert {
 // For chaining: only reports the first error to preserve fail-fast behaviour.
 func (a *Assert) reportError(got, want interface{}, message string) {
 	// If already failed, don't overwrite the first error (fail-fast chaining)
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return
 	}
 
 	// Mark as failed
-	a.failed = true
+	atomic.StoreInt32(&a.failed, 1)
 
 	// Set helper context for better stack traces
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -440,14 +513,14 @@ func (a *Assert) Error() string {
 // HasFailed returns true if any assertion in the chain has failed.
 // This enables fail-fast chaining behaviour.
 func (a *Assert) HasFailed() bool {
-	return a.failed
+	return atomic.LoadInt32(&a.failed) != 0
 }
 
 // Nil asserts that a value is nil.
 // Supports pointers, interfaces, slices, maps, channels, and functions.
 func (a *Assert) Nil(value interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -455,7 +528,7 @@ func (a *Assert) Nil(value interface{}) *Assert {
 	}
 
 	if !isNil(value) {
-		a.reportError(nil, value, "expected value to be nil")
+		a.reportErrorConsistent(nil, value, "expected value to be nil")
 	}
 	return a
 }
@@ -464,7 +537,7 @@ func (a *Assert) Nil(value interface{}) *Assert {
 // Supports pointers, interfaces, slices, maps, channels, and functions.
 func (a *Assert) NotNil(value interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -472,7 +545,7 @@ func (a *Assert) NotNil(value interface{}) *Assert {
 	}
 
 	if isNil(value) {
-		a.reportError("not nil", value, "expected value to not be nil")
+		a.reportErrorConsistent("not nil", value, "expected value to not be nil")
 	}
 	return a
 }
@@ -507,7 +580,7 @@ func isNil(value interface{}) bool {
 //	assert.Contains(user.Roles, "admin").Len(user.Roles, 2)
 func (a *Assert) Contains(container, item interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -516,18 +589,7 @@ func (a *Assert) Contains(container, item interface{}) *Assert {
 
 	result := diff.CollectionContainsDiff(container, item)
 	if result.HasDiff {
-		if !a.failed {
-			a.failed = true
-			// Set helper context
-			if t, ok := a.t.(interface{ Helper() }); ok {
-				t.Helper()
-			}
-			a.reportCollectionError(result)
-			// Call the TestingT interface to actually fail the test
-			if testingT, ok := a.t.(TestingT); ok {
-				testingT.Errorf("%s", a.errorMsg)
-			}
-		}
+		a.reportCollectionErrorConsistent(result)
 	}
 	return a
 }
@@ -540,12 +602,12 @@ func (a *Assert) Contains(container, item interface{}) *Assert {
 //	assert.Greater(response.StatusCode, 199).Less(response.StatusCode, 300)
 func (a *Assert) Greater(v1, v2 float64) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if v1 <= v2 {
-		a.reportError(v1, v2, "expected to be greater")
+		a.reportErrorConsistent(v1, v2, "expected to be greater")
 	}
 	return a
 }
@@ -553,12 +615,12 @@ func (a *Assert) Greater(v1, v2 float64) *Assert {
 // Less asserts that the first value is less than the second.
 func (a *Assert) Less(v1, v2 float64) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if v1 >= v2 {
-		a.reportError(v1, v2, "expected to be less")
+		a.reportErrorConsistent(v1, v2, "expected to be less")
 	}
 	return a
 }
@@ -571,12 +633,12 @@ func (a *Assert) Less(v1, v2 float64) *Assert {
 //	assert.HasPrefix(url, "https://").Contains(url, "api")
 func (a *Assert) HasPrefix(s, prefix string) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if !strings.HasPrefix(s, prefix) {
-		a.reportError(prefix, s, "expected to have prefix")
+		a.reportErrorConsistent(prefix, s, "expected to have prefix")
 	}
 	return a
 }
@@ -584,12 +646,12 @@ func (a *Assert) HasPrefix(s, prefix string) *Assert {
 // HasSuffix asserts that a string ends with a certain substring.
 func (a *Assert) HasSuffix(s, suffix string) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if !strings.HasSuffix(s, suffix) {
-		a.reportError(suffix, s, "expected to have suffix")
+		a.reportErrorConsistent(suffix, s, "expected to have suffix")
 	}
 	return a
 }
@@ -603,12 +665,12 @@ func (a *Assert) HasSuffix(s, suffix string) *Assert {
 //	assert.WithinTolerance(response.Duration, 1.5, 0.1).True(response.Success)
 func (a *Assert) WithinTolerance(expected, actual, tolerance float64) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if math.Abs(expected-actual) > tolerance {
-		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within tolerance %v", tolerance))
+		a.reportErrorConsistent(expected, actual, fmt.Sprintf("expected difference to be within tolerance %v", tolerance))
 	}
 	return a
 }
@@ -628,12 +690,12 @@ func (a *Assert) InDelta(expected, actual, delta float64) *Assert {
 //	assert.WithinPercentage(actual, expected, 0.05).NoError(validationErr)
 func (a *Assert) WithinPercentage(expected, actual, percentage float64) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if math.Abs((expected-actual)/((expected+actual)/2)) > percentage {
-		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %.1f percent", percentage*100))
+		a.reportErrorConsistent(expected, actual, fmt.Sprintf("expected difference to be within %.1f percent", percentage*100))
 	}
 	return a
 }
@@ -647,12 +709,12 @@ func (a *Assert) InEpsilon(expected, actual, epsilon float64) *Assert {
 // Regexp asserts that a string matches a regular expression.
 func (a *Assert) Regexp(pattern, str string) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if matched, _ := regexp.MatchString(pattern, str); !matched {
-		a.reportError(pattern, str, "expected to match regular expression")
+		a.reportErrorConsistent(pattern, str, "expected to match regular expression")
 	}
 	return a
 }
@@ -665,7 +727,7 @@ func (a *Assert) Regexp(pattern, str string) *Assert {
 //	assert.NoError(err).True(result != nil).Contains(result.Status, "success")
 func (a *Assert) NoError(err error) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -673,7 +735,7 @@ func (a *Assert) NoError(err error) *Assert {
 	}
 
 	if err != nil {
-		a.reportError("no error", err, "expected no error")
+		a.reportErrorConsistent("no error", err, "expected no error")
 	}
 	return a
 }
@@ -681,7 +743,7 @@ func (a *Assert) NoError(err error) *Assert {
 // ErrorType asserts that a function call returns a specific error type.
 func (a *Assert) ErrorType(expected, actual error) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -696,7 +758,7 @@ func (a *Assert) ErrorType(expected, actual error) *Assert {
 		// Use cleaner type name formatting for error message
 		expectedTypeName := expectedType.String()
 		actualTypeName := actualType.String()
-		a.reportError(actualTypeName, expectedTypeName, "expected error of different type")
+		a.reportErrorConsistent(actualTypeName, expectedTypeName, "expected error of different type")
 	}
 	return a
 }
@@ -704,7 +766,7 @@ func (a *Assert) ErrorType(expected, actual error) *Assert {
 // HasError asserts that an error occurred (error is not nil).
 func (a *Assert) HasError(err error) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -712,7 +774,7 @@ func (a *Assert) HasError(err error) *Assert {
 	}
 
 	if err == nil {
-		a.reportError("an error", nil, "expected an error but got none")
+		a.reportErrorConsistent("an error", nil, "expected an error but got none")
 	}
 	return a
 }
@@ -721,7 +783,7 @@ func (a *Assert) HasError(err error) *Assert {
 // This follows Go 1.13+ error wrapping patterns.
 func (a *Assert) ErrorIs(err, target error) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -729,7 +791,7 @@ func (a *Assert) ErrorIs(err, target error) *Assert {
 	}
 
 	if !errors.Is(err, target) {
-		a.reportError(target, err, "expected error to match target")
+		a.reportErrorConsistent(target, err, "expected error to match target")
 	}
 	return a
 }
@@ -738,7 +800,7 @@ func (a *Assert) ErrorIs(err, target error) *Assert {
 // This follows Go 1.13+ error wrapping patterns.
 func (a *Assert) ErrorAs(err error, target interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -746,7 +808,7 @@ func (a *Assert) ErrorAs(err error, target interface{}) *Assert {
 	}
 
 	if !errors.As(err, target) {
-		a.reportError(reflect.TypeOf(target).Elem(), err, "expected error to be assignable to target type")
+		a.reportErrorConsistent(reflect.TypeOf(target).Elem(), err, "expected error to be assignable to target type")
 	}
 	return a
 }
@@ -759,7 +821,7 @@ func (a *Assert) ErrorAs(err error, target interface{}) *Assert {
 //	assert.ErrorContains(err, "timeout").ErrorIs(err, context.DeadlineExceeded)
 func (a *Assert) ErrorContains(err error, substring string) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -767,13 +829,13 @@ func (a *Assert) ErrorContains(err error, substring string) *Assert {
 	}
 
 	if err == nil {
-		a.reportError(substring, nil, "expected error but got nil")
+		a.reportErrorConsistent(substring, nil, "expected error but got nil")
 		return a
 	}
 
 	errorMessage := err.Error()
 	if !strings.Contains(errorMessage, substring) {
-		a.reportError(substring, errorMessage, "expected error message to contain")
+		a.reportErrorConsistent(substring, errorMessage, "expected error message to contain")
 	}
 	return a
 }
@@ -781,7 +843,7 @@ func (a *Assert) ErrorContains(err error, substring string) *Assert {
 // ErrorMatches asserts that an error's message matches a regular expression pattern.
 func (a *Assert) ErrorMatches(err error, pattern string) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -790,14 +852,14 @@ func (a *Assert) ErrorMatches(err error, pattern string) *Assert {
 	}
 
 	if err == nil {
-		a.reportError(pattern, nil, "expected error but got nil")
+		a.reportErrorConsistent(pattern, nil, "expected error but got nil")
 		return a
 	}
 
 	errorMessage := err.Error()
 	matched, regexErr := regexp.MatchString(pattern, errorMessage)
 	if regexErr != nil {
-		a.reportError(pattern, regexErr, "invalid regular expression pattern")
+		a.reportErrorConsistent(pattern, regexErr, "invalid regular expression pattern")
 		return a
 	}
 
@@ -805,7 +867,7 @@ func (a *Assert) ErrorMatches(err error, pattern string) *Assert {
 		// Use direct error message format to avoid string diff confusion
 		// Show raw pattern (no quotes) for better readability
 		a.errorMsg = fmt.Sprintf("expected error message to match pattern\n  pattern: %s\n  error:   %q", pattern, errorMessage)
-		a.failed = true
+		atomic.StoreInt32(&a.failed, 1)
 		// Call the TestingT interface to actually fail the test
 		if testingT, ok := a.t.(TestingT); ok {
 			testingT.Errorf("%s", a.errorMsg)
@@ -817,7 +879,7 @@ func (a *Assert) ErrorMatches(err error, pattern string) *Assert {
 // IsEmpty asserts that a given array, slice, map, or string is empty.
 func (a *Assert) IsEmpty(value interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -825,10 +887,10 @@ func (a *Assert) IsEmpty(value interface{}) *Assert {
 	switch valueType.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
 		if reflect.ValueOf(value).Len() != 0 {
-			a.reportError(0, reflect.ValueOf(value).Len(), "expected to be empty")
+			a.reportErrorConsistent(0, reflect.ValueOf(value).Len(), "expected to be empty")
 		}
 	default:
-		a.reportError(nil, value, "invalid type for IsEmpty")
+		a.reportErrorConsistent(nil, value, "invalid type for IsEmpty")
 	}
 	return a
 }
@@ -836,7 +898,7 @@ func (a *Assert) IsEmpty(value interface{}) *Assert {
 // IsNotEmpty asserts that a given array, slice, map, or string is not empty.
 func (a *Assert) IsNotEmpty(value interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -844,10 +906,10 @@ func (a *Assert) IsNotEmpty(value interface{}) *Assert {
 	switch valueType.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
 		if reflect.ValueOf(value).Len() == 0 {
-			a.reportError("not empty", reflect.ValueOf(value).Len(), "expected to be not empty")
+			a.reportErrorConsistent("not empty", reflect.ValueOf(value).Len(), "expected to be not empty")
 		}
 	default:
-		a.reportError(nil, value, "invalid type for IsNotEmpty")
+		a.reportErrorConsistent(nil, value, "invalid type for IsNotEmpty")
 	}
 	return a
 }
@@ -861,7 +923,7 @@ func (a *Assert) IsNotEmpty(value interface{}) *Assert {
 //	assert.Len(users, 3).Contains(users[0].Email, "@").True(len(users) > 0)
 func (a *Assert) Len(container interface{}, expectedLen int) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -870,18 +932,7 @@ func (a *Assert) Len(container interface{}, expectedLen int) *Assert {
 
 	result := diff.CollectionLenDiff(container, expectedLen)
 	if result.HasDiff {
-		if !a.failed {
-			a.failed = true
-			// Set helper context
-			if t, ok := a.t.(interface{ Helper() }); ok {
-				t.Helper()
-			}
-			a.reportCollectionError(result)
-			// Call the TestingT interface to actually fail the test
-			if testingT, ok := a.t.(TestingT); ok {
-				testingT.Errorf("%s", a.errorMsg)
-			}
-		}
+		a.reportCollectionErrorConsistent(result)
 	}
 	return a
 }
@@ -889,14 +940,14 @@ func (a *Assert) Len(container interface{}, expectedLen int) *Assert {
 // Implements asserts that an object implements a certain interface.
 func (a *Assert) Implements(object, interfaceObj interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	objectType := reflect.TypeOf(object)
 	interfaceType := reflect.TypeOf(interfaceObj).Elem()
 	if !objectType.Implements(interfaceType) {
-		a.reportError(interfaceType, objectType, "expected to implement interface")
+		a.reportErrorConsistent(interfaceType, objectType, "expected to implement interface")
 	}
 	return a
 }
@@ -904,29 +955,29 @@ func (a *Assert) Implements(object, interfaceObj interface{}) *Assert {
 // IsZero asserts that a given numeric value or time.Time is zero.
 func (a *Assert) IsZero(value interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	switch v := value.(type) {
 	case int, int8, int16, int32, int64:
 		if v != 0 {
-			a.reportError(0, v, "expected to be zero")
+			a.reportErrorConsistent(0, v, "expected to be zero")
 		}
 	case uint, uint8, uint16, uint32, uint64:
 		if v != 0 {
-			a.reportError(0, v, "expected to be zero")
+			a.reportErrorConsistent(0, v, "expected to be zero")
 		}
 	case float32, float64:
 		if v != 0 {
-			a.reportError(0, v, "expected to be zero")
+			a.reportErrorConsistent(0, v, "expected to be zero")
 		}
 	case time.Time:
 		if !v.IsZero() {
-			a.reportError(time.Time{}, v, "expected to be zero")
+			a.reportErrorConsistent(time.Time{}, v, "expected to be zero")
 		}
 	default:
-		a.reportError(nil, value, "invalid type for IsZero")
+		a.reportErrorConsistent(nil, value, "invalid type for IsZero")
 	}
 	return a
 }
@@ -934,29 +985,29 @@ func (a *Assert) IsZero(value interface{}) *Assert {
 // IsNotZero asserts that a given numeric value or time.Time is not zero.
 func (a *Assert) IsNotZero(value interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	switch v := value.(type) {
 	case int, int8, int16, int32, int64:
 		if v == 0 {
-			a.reportError("not zero", v, "expected to be not zero")
+			a.reportErrorConsistent("not zero", v, "expected to be not zero")
 		}
 	case uint, uint8, uint16, uint32, uint64:
 		if v == 0 {
-			a.reportError("not zero", v, "expected to be not zero")
+			a.reportErrorConsistent("not zero", v, "expected to be not zero")
 		}
 	case float32, float64:
 		if v == 0 {
-			a.reportError("not zero", v, "expected to be not zero")
+			a.reportErrorConsistent("not zero", v, "expected to be not zero")
 		}
 	case time.Time:
 		if v.IsZero() {
-			a.reportError("not zero", v, "expected to be not zero")
+			a.reportErrorConsistent("not zero", v, "expected to be not zero")
 		}
 	default:
-		a.reportError(nil, value, "invalid type for IsNotZero")
+		a.reportErrorConsistent(nil, value, "invalid type for IsNotZero")
 	}
 	return a
 }
@@ -964,12 +1015,12 @@ func (a *Assert) IsNotZero(value interface{}) *Assert {
 // IsWithinDuration asserts that a given time.Time is within a certain duration from another time.Time.
 func (a *Assert) IsWithinDuration(t1, t2 time.Time, d time.Duration) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if abs := t1.Sub(t2); abs > d {
-		a.reportError(d, abs, "expected to be within duration")
+		a.reportErrorConsistent(d, abs, "expected to be within duration")
 	}
 	return a
 }
@@ -977,12 +1028,12 @@ func (a *Assert) IsWithinDuration(t1, t2 time.Time, d time.Duration) *Assert {
 // MatchesPattern asserts that a string matches a certain pattern.
 func (a *Assert) MatchesPattern(pattern, s string) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if matched, _ := regexp.MatchString(pattern, s); !matched {
-		a.reportError(pattern, s, "expected to match pattern")
+		a.reportErrorConsistent(pattern, s, "expected to match pattern")
 	}
 	return a
 }
@@ -995,7 +1046,7 @@ func (a *Assert) MatchesPattern(pattern, s string) *Assert {
 //	assert.Panics(func() { divide(1, 0) }).True(recovered)
 func (a *Assert) Panics(f func()) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -1004,7 +1055,7 @@ func (a *Assert) Panics(f func()) *Assert {
 
 	defer func() {
 		if r := recover(); r == nil {
-			a.reportError("panic", nil, "expected to panic")
+			a.reportErrorConsistent("panic", nil, "expected to panic")
 		}
 	}()
 
@@ -1015,7 +1066,7 @@ func (a *Assert) Panics(f func()) *Assert {
 // PanicsWith asserts that a certain function panics with a specific value.
 func (a *Assert) PanicsWith(f func(), expected interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -1024,7 +1075,7 @@ func (a *Assert) PanicsWith(f func(), expected interface{}) *Assert {
 
 	defer func() {
 		if r := recover(); r != expected {
-			a.reportError(expected, r, "expected to panic with")
+			a.reportErrorConsistent(expected, r, "expected to panic with")
 		}
 	}()
 
@@ -1035,7 +1086,7 @@ func (a *Assert) PanicsWith(f func(), expected interface{}) *Assert {
 // NotPanics asserts that a certain function does not panic.
 func (a *Assert) NotPanics(f func()) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -1044,7 +1095,7 @@ func (a *Assert) NotPanics(f func()) *Assert {
 
 	defer func() {
 		if r := recover(); r != nil {
-			a.reportError("no panic", r, "expected not to panic")
+			a.reportErrorConsistent("no panic", r, "expected not to panic")
 		}
 	}()
 
@@ -1056,7 +1107,7 @@ func (a *Assert) NotPanics(f func()) *Assert {
 // Provides detailed context showing which elements differ and their positions.
 func (a *Assert) SliceDiff(got, want []int) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -1067,7 +1118,7 @@ func (a *Assert) SliceDiff(got, want []int) *Assert {
 	// Check lengths first
 	if len(got) != len(want) {
 		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", len(got), len(want))
-		a.failed = true
+		atomic.StoreInt32(&a.failed, 1)
 		// Call the TestingT interface to actually fail the test
 		if testingT, ok := a.t.(TestingT); ok {
 			testingT.Errorf("%s", a.errorMsg)
@@ -1079,7 +1130,7 @@ func (a *Assert) SliceDiff(got, want []int) *Assert {
 	for i, gotVal := range got {
 		if gotVal != want[i] {
 			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %d\n  want: %d", i, gotVal, want[i])
-			a.failed = true
+			atomic.StoreInt32(&a.failed, 1)
 			// Call the TestingT interface to actually fail the test
 			if testingT, ok := a.t.(TestingT); ok {
 				testingT.Errorf("%s", a.errorMsg)
@@ -1335,12 +1386,12 @@ func (a *Assert) DeepDiff(got, want any) {
 // Condition asserts that a certain condition is true.
 func (a *Assert) Condition(condition bool) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if !condition {
-		a.reportError(true, condition, "expected condition to be true")
+		a.reportErrorConsistent(true, condition, "expected condition to be true")
 	}
 	return a
 }
@@ -1348,32 +1399,46 @@ func (a *Assert) Condition(condition bool) *Assert {
 // Conditionf asserts that a certain condition is true with a formatted message.
 func (a *Assert) Conditionf(condition bool, format string, args ...interface{}) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
 	if !condition {
-		a.reportError(true, condition, fmt.Sprintf(format, args...))
+		a.reportErrorConsistent(true, condition, fmt.Sprintf(format, args...))
 	}
 	return a
 }
 
 // HttpStatus asserts that a HTTP response has a certain status code.
-func (a *Assert) HttpStatus(response *http.Response, expected int) {
-	if response.StatusCode != expected {
-		a.reportError(expected, response.StatusCode, "expected different HTTP status")
+// HttpStatus asserts that a HTTP response has the expected status code.
+// Returns *Assert to enable method chaining.
+func (a *Assert) HttpStatus(response *http.Response, expected int) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
 	}
+
+	if response.StatusCode != expected {
+		a.reportErrorConsistent(expected, response.StatusCode, "expected different HTTP status")
+	}
+	return a
 }
 
 // JsonEqual asserts that a JSON string is equivalent to another JSON string or object.
-func (a *Assert) JsonEqual(expected, actual string) {
+// Returns *Assert to enable method chaining.
+func (a *Assert) JsonEqual(expected, actual string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	// First check if JSON strings are identical (fast path)
 	if expected == actual {
-		return
+		return a
 	}
 
 	// Parse both JSON strings
@@ -1383,93 +1448,135 @@ func (a *Assert) JsonEqual(expected, actual string) {
 
 	// Handle parse errors
 	if err1 != nil && err2 != nil {
-		a.reportError(actual, expected, "both JSON strings are invalid")
-		return
+		a.reportErrorConsistent(actual, expected, "both JSON strings are invalid")
+		return a
 	}
 	if err1 != nil {
-		a.reportError(actual, expected, "expected JSON is invalid: "+err1.Error())
-		return
+		a.reportErrorConsistent(actual, expected, "expected JSON is invalid: "+err1.Error())
+		return a
 	}
 	if err2 != nil {
-		a.reportError(actual, expected, "actual JSON is invalid: "+err2.Error())
-		return
+		a.reportErrorConsistent(actual, expected, "actual JSON is invalid: "+err2.Error())
+		return a
 	}
 
 	// Compare parsed objects
 	if !reflect.DeepEqual(obj1, obj2) {
 		// Objects differ - provide enhanced JSON string comparison
-		a.reportError(actual, expected, "JSON objects differ")
+		a.reportErrorConsistent(actual, expected, "JSON objects differ")
 	}
+	return a
 }
 
 // HasHeader asserts that a HTTP response has a certain header.
-func (a *Assert) HasHeader(response *http.Response, header string) {
-	if _, ok := response.Header[header]; !ok {
-		a.reportError(header, nil, "expected to have header")
+// Returns *Assert to enable method chaining.
+func (a *Assert) HasHeader(response *http.Response, header string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
 	}
+
+	if _, ok := response.Header[header]; !ok {
+		a.reportErrorConsistent(header, nil, "expected to have header")
+	}
+	return a
 }
 
 // HeaderEqual asserts that a HTTP response header has a certain value.
-func (a *Assert) HeaderEqual(response *http.Response, header, expected string) {
-	if value, ok := response.Header[header]; !ok || len(value) == 0 || value[0] != expected {
-		a.reportError(expected, response.Header[header], "expected different header value")
+// Returns *Assert to enable method chaining.
+func (a *Assert) HeaderEqual(response *http.Response, header, expected string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
 	}
+
+	if value, ok := response.Header[header]; !ok || len(value) == 0 || value[0] != expected {
+		a.reportErrorConsistent(expected, response.Header[header], "expected different header value")
+	}
+	return a
 }
 
 // BodyContains asserts that a HTTP response body contains a certain string.
-func (a *Assert) BodyContains(response *http.Response, expected string) {
+// Returns *Assert to enable method chaining.
+func (a *Assert) BodyContains(response *http.Response, expected string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
+	}
+
 	body, _ := ioutil.ReadAll(response.Body)
 	if !strings.Contains(string(body), expected) {
-		a.reportError(expected, string(body), "expected body to contain")
+		a.reportErrorConsistent(expected, string(body), "expected body to contain")
 	}
+	return a
 }
 
 // BodyMatches asserts that a HTTP response body matches a certain regular expression.
-func (a *Assert) BodyMatches(response *http.Response, pattern string) {
+// Returns *Assert to enable method chaining.
+func (a *Assert) BodyMatches(response *http.Response, pattern string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
+	}
+
 	body, _ := ioutil.ReadAll(response.Body)
 	if matched, _ := regexp.MatchString(pattern, string(body)); !matched {
-		a.reportError(pattern, string(body), "expected body to match")
+		a.reportErrorConsistent(pattern, string(body), "expected body to match")
 	}
+	return a
 }
 
 // IsRedirect asserts that a HTTP response is a redirect.
-func (a *Assert) IsRedirect(response *http.Response) {
-	if response.StatusCode < 300 || response.StatusCode >= 400 {
-		a.reportError("3xx", response.StatusCode, "expected redirect status code")
+// Returns *Assert to enable method chaining.
+func (a *Assert) IsRedirect(response *http.Response) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
 	}
+
+	if response.StatusCode < 300 || response.StatusCode >= 400 {
+		a.reportErrorConsistent("3xx", response.StatusCode, "expected redirect status code")
+	}
+	return a
 }
 
 // IsSuccess asserts that a HTTP response is a success.
 func (a *Assert) IsSuccess(response *http.Response) {
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		a.reportError("2xx", response.StatusCode, "expected success status code")
+		a.reportErrorConsistent("2xx", response.StatusCode, "expected success status code")
 	}
 }
 
 // IsClientError asserts that a HTTP response is a client error.
 func (a *Assert) IsClientError(response *http.Response) {
 	if response.StatusCode < 400 || response.StatusCode >= 500 {
-		a.reportError("4xx", response.StatusCode, "expected client error status code")
+		a.reportErrorConsistent("4xx", response.StatusCode, "expected client error status code")
 	}
 }
 
 // IsServerError asserts that a HTTP response is a server error.
 func (a *Assert) IsServerError(response *http.Response) {
 	if response.StatusCode < 500 || response.StatusCode >= 600 {
-		a.reportError("5xx", response.StatusCode, "expected server error status code")
+		a.reportErrorConsistent("5xx", response.StatusCode, "expected server error status code")
 	}
 }
 
 // BodyJsonEqual asserts that a HTTP response body is equivalent to a given JSON object.
-func (a *Assert) BodyJsonEqual(response *http.Response, expected interface{}) {
+// Returns *Assert to enable method chaining.
+func (a *Assert) BodyJsonEqual(response *http.Response, expected interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		a.reportError(nil, expected, "failed to read response body: "+err.Error())
-		return
+		a.reportErrorConsistent(nil, expected, "failed to read response body: "+err.Error())
+		return a
 	}
 
 	// Parse actual JSON from response body
@@ -1477,23 +1584,24 @@ func (a *Assert) BodyJsonEqual(response *http.Response, expected interface{}) {
 	if err := json.Unmarshal(body, &actual); err != nil {
 		// JSON parsing failed - show the raw body with enhanced diff if expected is string
 		if expectedStr, ok := expected.(string); ok {
-			a.reportError(string(body), expectedStr, "response body is not valid JSON: "+err.Error())
+			a.reportErrorConsistent(string(body), expectedStr, "response body is not valid JSON: "+err.Error())
 		} else {
-			a.reportError(string(body), expected, "response body is not valid JSON: "+err.Error())
+			a.reportErrorConsistent(string(body), expected, "response body is not valid JSON: "+err.Error())
 		}
-		return
+		return a
 	}
 
 	// Compare parsed objects
 	if !reflect.DeepEqual(actual, expected) {
 		// If expected is a string (JSON), show enhanced string comparison of raw JSON
 		if expectedStr, ok := expected.(string); ok {
-			a.reportError(string(body), expectedStr, "response JSON differs from expected")
+			a.reportErrorConsistent(string(body), expectedStr, "response JSON differs from expected")
 		} else {
 			// Expected is an object, use standard comparison
-			a.reportError(actual, expected, "response JSON differs from expected object")
+			a.reportErrorConsistent(actual, expected, "response JSON differs from expected object")
 		}
 	}
+	return a
 }
 
 // HasCookie asserts that a HTTP response has a certain cookie.
@@ -1506,7 +1614,7 @@ func (a *Assert) HasCookie(response *http.Response, name string) {
 		}
 	}
 	if !hasCookie {
-		a.reportError(name, nil, "expected to have cookie")
+		a.reportErrorConsistent(name, nil, "expected to have cookie")
 	}
 }
 
@@ -1514,7 +1622,7 @@ func (a *Assert) HasCookie(response *http.Response, name string) {
 func (a *Assert) HeaderContains(response *http.Response, header, expected string) {
 	values, ok := response.Header[header]
 	if !ok {
-		a.reportError(expected, nil, "expected to have header")
+		a.reportErrorConsistent(expected, nil, "expected to have header")
 	} else {
 		var found bool
 		for _, value := range values {
@@ -1524,7 +1632,7 @@ func (a *Assert) HeaderContains(response *http.Response, header, expected string
 			}
 		}
 		if !found {
-			a.reportError(expected, values, "expected header to contain value")
+			a.reportErrorConsistent(expected, values, "expected header to contain value")
 		}
 	}
 }
@@ -1533,36 +1641,36 @@ func (a *Assert) ResponseTime(url string, maxTime time.Duration) {
 	start := time.Now()
 	_, err := http.Get(url)
 	if err != nil {
-		a.reportError(maxTime, err, "error making request")
+		a.reportErrorConsistent(maxTime, err, "error making request")
 	}
 	elapsed := time.Since(start)
 	if elapsed > maxTime {
-		a.reportError(maxTime, elapsed, "response time exceeded")
+		a.reportErrorConsistent(maxTime, elapsed, "response time exceeded")
 	}
 }
 
 func (a *Assert) IsSorted(slice []int) {
 	if !sort.IntsAreSorted(slice) {
-		a.reportError(nil, slice, "slice is not sorted")
+		a.reportErrorConsistent(nil, slice, "slice is not sorted")
 	}
 }
 
 func (a *Assert) IsSortedFloat64(slice []float64) {
 	if !sort.Float64sAreSorted(slice) {
-		a.reportError(nil, slice, "slice is not sorted")
+		a.reportErrorConsistent(nil, slice, "slice is not sorted")
 	}
 }
 
 func (a *Assert) FileExists(path string) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		a.reportError(path, nil, "file does not exist")
+		a.reportErrorConsistent(path, nil, "file does not exist")
 	}
 }
 
 func (a *Assert) DirectoryExists(path string) {
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) || !info.IsDir() {
-		a.reportError(path, nil, "directory does not exist")
+		a.reportErrorConsistent(path, nil, "directory does not exist")
 	}
 }
 
@@ -1601,7 +1709,7 @@ func defaultEventuallyConfig() EventuallyConfig {
 //	      True(service.Status == "running")
 func (a *Assert) Eventually(condition func() bool, timeout, interval time.Duration) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -1625,7 +1733,7 @@ func (a *Assert) Eventually(condition func() bool, timeout, interval time.Durati
 // Fails immediately if the condition becomes true at any point.
 func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -1648,7 +1756,7 @@ func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) *
 // Provides fine-grained control over timeout, polling, and backoff behaviour.
 func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -1675,7 +1783,7 @@ func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) 
 // Provides fine-grained control over timeout, polling, and backoff behaviour.
 func (a *Assert) NeverWith(condition func() bool, config EventuallyConfig) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -1724,7 +1832,7 @@ func (a *Assert) eventuallyWithConfig(condition func() bool, config EventuallyCo
 		case <-ctx.Done():
 			// Timeout reached - report failure with timing context
 			elapsed := time.Since(startTime)
-			a.failed = true
+			atomic.StoreInt32(&a.failed, 1)
 			a.errorMsg = fmt.Sprintf("Eventually: condition not met within timeout\n  timeout: %v\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 				config.Timeout, elapsed, attempts, currentInterval)
 
@@ -1774,7 +1882,7 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 	attempts++
 	if condition() {
 		elapsed := time.Since(startTime)
-		a.failed = true
+		atomic.StoreInt32(&a.failed, 1)
 		a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  interval: %v",
 			elapsed, attempts, config.Interval)
 
@@ -1799,7 +1907,7 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 			attempts++
 			if condition() {
 				elapsed := time.Since(startTime)
-				a.failed = true
+				atomic.StoreInt32(&a.failed, 1)
 				a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 					elapsed, attempts, currentInterval)
 
@@ -1833,7 +1941,7 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 // Uses proper resource management and provides detailed error messages with timing context.
 func (a *Assert) WithinTimeout(f func(), timeout time.Duration) *Assert {
 	// Fail-fast: if already failed, return immediately
-	if a.failed {
+	if a.shouldSkipDueToFailure() {
 		return a
 	}
 
@@ -1874,7 +1982,7 @@ func (a *Assert) WithinTimeout(f func(), timeout time.Duration) *Assert {
 	case <-ctx.Done():
 		// Timeout exceeded
 		elapsed := time.Since(startTime)
-		a.failed = true
+		atomic.StoreInt32(&a.failed, 1)
 		a.errorMsg = fmt.Sprintf("WithinTimeout: function did not complete within timeout\n  timeout: %v\n  elapsed: %v", timeout, elapsed)
 
 		// Call the TestingT interface to actually fail the test
