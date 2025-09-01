@@ -101,13 +101,16 @@ func New(t interface{}) *Assert {
 
 // WithDiffFormat returns a new Assert instance with the specified diff format preference.
 // This follows GoWise principles of immutable configuration.
+// NOTE: New Assert instance shares failure state with original for proper chaining.
 func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
-	return &Assert{
+	newAssert := &Assert{
 		t:          a.t,
 		errorMsg:   a.errorMsg,
-		failed:     atomic.LoadInt32(&a.failed),
 		diffFormat: format,
 	}
+	// Preserve atomic failure state by storing current value atomically
+	atomic.StoreInt32(&newAssert.failed, atomic.LoadInt32(&a.failed))
+	return newAssert
 }
 
 // shouldSkipDueToFailure checks if we should skip this assertion due to fail-fast
@@ -342,13 +345,10 @@ func (a *Assert) False(condition bool) *Assert {
 // Uses lazy formatting and UK English.
 // For chaining: only reports the first error to preserve fail-fast behaviour.
 func (a *Assert) reportError(got, want interface{}, message string) {
-	// If already failed, don't overwrite the first error (fail-fast chaining)
-	if a.shouldSkipDueToFailure() {
+	// Only report the first error (fail-fast chaining)
+	if !a.markAsFailed() {
 		return
 	}
-
-	// Mark as failed
-	atomic.StoreInt32(&a.failed, 1)
 
 	// Set helper context for better stack traces
 	if t, ok := a.t.(interface{ Helper() }); ok {
@@ -864,10 +864,13 @@ func (a *Assert) ErrorMatches(err error, pattern string) *Assert {
 	}
 
 	if !matched {
+		// Only report first failure (fail-fast chaining)
+		if !a.markAsFailed() {
+			return a
+		}
 		// Use direct error message format to avoid string diff confusion
 		// Show raw pattern (no quotes) for better readability
 		a.errorMsg = fmt.Sprintf("expected error message to match pattern\n  pattern: %s\n  error:   %q", pattern, errorMessage)
-		atomic.StoreInt32(&a.failed, 1)
 		// Call the TestingT interface to actually fail the test
 		if testingT, ok := a.t.(TestingT); ok {
 			testingT.Errorf("%s", a.errorMsg)
@@ -1117,8 +1120,11 @@ func (a *Assert) SliceDiff(got, want []int) *Assert {
 
 	// Check lengths first
 	if len(got) != len(want) {
+		// Only report first failure (fail-fast chaining)
+		if !a.markAsFailed() {
+			return a
+		}
 		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", len(got), len(want))
-		atomic.StoreInt32(&a.failed, 1)
 		// Call the TestingT interface to actually fail the test
 		if testingT, ok := a.t.(TestingT); ok {
 			testingT.Errorf("%s", a.errorMsg)
@@ -1129,8 +1135,11 @@ func (a *Assert) SliceDiff(got, want []int) *Assert {
 	// Find first difference
 	for i, gotVal := range got {
 		if gotVal != want[i] {
+			// Only report first failure (fail-fast chaining)
+			if !a.markAsFailed() {
+				return a
+			}
 			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %d\n  want: %d", i, gotVal, want[i])
-			atomic.StoreInt32(&a.failed, 1)
 			// Call the TestingT interface to actually fail the test
 			if testingT, ok := a.t.(TestingT); ok {
 				testingT.Errorf("%s", a.errorMsg)
@@ -1853,7 +1862,10 @@ func (a *Assert) eventuallyWithConfig(condition func() bool, config EventuallyCo
 		case <-ctx.Done():
 			// Timeout reached - report failure with timing context
 			elapsed := time.Since(startTime)
-			atomic.StoreInt32(&a.failed, 1)
+			// Only report first failure (fail-fast chaining)
+			if !a.markAsFailed() {
+				return
+			}
 			a.errorMsg = fmt.Sprintf("Eventually: condition not met within timeout\n  timeout: %v\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 				config.Timeout, elapsed, attempts, currentInterval)
 
@@ -1903,7 +1915,10 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 	attempts++
 	if condition() {
 		elapsed := time.Since(startTime)
-		atomic.StoreInt32(&a.failed, 1)
+		// Only report first failure (fail-fast chaining)
+		if !a.markAsFailed() {
+			return
+		}
 		a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  interval: %v",
 			elapsed, attempts, config.Interval)
 
@@ -1928,7 +1943,10 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 			attempts++
 			if condition() {
 				elapsed := time.Since(startTime)
-				atomic.StoreInt32(&a.failed, 1)
+				// Only report first failure (fail-fast chaining)
+				if !a.markAsFailed() {
+					return
+				}
 				a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 					elapsed, attempts, currentInterval)
 
@@ -2003,7 +2021,10 @@ func (a *Assert) WithinTimeout(f func(), timeout time.Duration) *Assert {
 	case <-ctx.Done():
 		// Timeout exceeded
 		elapsed := time.Since(startTime)
-		atomic.StoreInt32(&a.failed, 1)
+		// Only report first failure (fail-fast chaining)
+		if !a.markAsFailed() {
+			return a
+		}
 		a.errorMsg = fmt.Sprintf("WithinTimeout: function did not complete within timeout\n  timeout: %v\n  elapsed: %v", timeout, elapsed)
 
 		// Call the TestingT interface to actually fail the test
