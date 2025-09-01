@@ -1541,24 +1541,45 @@ func (a *Assert) IsRedirect(response *http.Response) *Assert {
 }
 
 // IsSuccess asserts that a HTTP response is a success.
-func (a *Assert) IsSuccess(response *http.Response) {
+// Returns *Assert to enable method chaining.
+func (a *Assert) IsSuccess(response *http.Response) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
+	}
+
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		a.reportErrorConsistent("2xx", response.StatusCode, "expected success status code")
 	}
+	return a
 }
 
 // IsClientError asserts that a HTTP response is a client error.
-func (a *Assert) IsClientError(response *http.Response) {
+// Returns *Assert to enable method chaining.
+func (a *Assert) IsClientError(response *http.Response) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
+	}
+
 	if response.StatusCode < 400 || response.StatusCode >= 500 {
 		a.reportErrorConsistent("4xx", response.StatusCode, "expected client error status code")
 	}
+	return a
 }
 
 // IsServerError asserts that a HTTP response is a server error.
-func (a *Assert) IsServerError(response *http.Response) {
+// Returns *Assert to enable method chaining.
+func (a *Assert) IsServerError(response *http.Response) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.shouldSkipDueToFailure() {
+		return a
+	}
+
 	if response.StatusCode < 500 || response.StatusCode >= 600 {
 		a.reportErrorConsistent("5xx", response.StatusCode, "expected server error status code")
 	}
+	return a
 }
 
 // BodyJsonEqual asserts that a HTTP response body is equivalent to a given JSON object.
