@@ -103,13 +103,14 @@ func New(t interface{}) *Assert {
 // This follows GoWise principles of immutable configuration.
 // NOTE: New Assert instance shares failure state with original for proper chaining.
 func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
+	// Atomically copy failure state in a single operation to avoid race condition
+	failedState := atomic.LoadInt32(&a.failed)
 	newAssert := &Assert{
 		t:          a.t,
 		errorMsg:   a.errorMsg,
+		failed:     failedState, // Direct assignment from atomic read
 		diffFormat: format,
 	}
-	// Preserve atomic failure state by storing current value atomically
-	atomic.StoreInt32(&newAssert.failed, atomic.LoadInt32(&a.failed))
 	return newAssert
 }
 
@@ -1828,15 +1829,16 @@ func (a *Assert) eventuallyWithConfig(condition func() bool, config EventuallyCo
 		case <-ctx.Done():
 			// Timeout reached - report failure with timing context
 			elapsed := time.Since(startTime)
-			// Only report first failure (fail-fast chaining)
+			// Use consistent fail-fast pattern
 			if !a.markAsFailed() {
 				return
 			}
-			a.errorMsg = fmt.Sprintf("Eventually: condition not met within timeout\n  timeout: %v\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
+			errorMsg := fmt.Sprintf("Eventually: condition not met within timeout\n  timeout: %v\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 				config.Timeout, elapsed, attempts, currentInterval)
-
+			a.errorMsg = errorMsg
 			// Call the TestingT interface to actually fail the test
 			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Helper()
 				testingT.Errorf("%s", a.errorMsg)
 			}
 			return
