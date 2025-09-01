@@ -87,7 +87,7 @@ const (
 type Assert struct {
 	t          interface{}
 	errorMsg   string
-	failed     int32      // Track if any assertion has failed (for fail-fast chaining) - atomic
+	failed     int32      // atomic: 0=not failed, 1=failed (for fail-fast chaining)
 	diffFormat DiffFormat // Preferred format for multi-line string diffs
 }
 
@@ -339,40 +339,6 @@ func (a *Assert) False(condition bool) *Assert {
 		a.reportErrorConsistent(false, condition, "expected condition to be false")
 	}
 	return a
-}
-
-// reportError is a helper function to report test failures.
-// Uses lazy formatting and UK English.
-// For chaining: only reports the first error to preserve fail-fast behaviour.
-func (a *Assert) reportError(got, want interface{}, message string) {
-	// Only report the first error (fail-fast chaining)
-	if !a.markAsFailed() {
-		return
-	}
-
-	// Set helper context for better stack traces
-	if t, ok := a.t.(interface{ Helper() }); ok {
-		t.Helper()
-	}
-
-	// Check if both values are strings and use diff for better error messages
-	if gotStr, gotOK := got.(string); gotOK {
-		if wantStr, wantOK := want.(string); wantOK {
-			a.reportStringError(gotStr, wantStr, message)
-			// Call the TestingT interface to actually fail the test
-			if testingT, ok := a.t.(TestingT); ok {
-				testingT.Errorf("%s", a.errorMsg)
-			}
-			return
-		}
-	}
-
-	// Default error message for non-string types
-	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
-	// Call the TestingT interface to actually fail the test
-	if testingT, ok := a.t.(TestingT); ok {
-		testingT.Errorf("%s", a.errorMsg)
-	}
 }
 
 // reportCollectionError provides enhanced error messages for collection comparisons using diff infrastructure
