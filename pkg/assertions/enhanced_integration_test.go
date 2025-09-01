@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestEnhancedJsonEqualIntegration tests JsonEqual with enhanced diff
 func TestEnhancedJsonEqualIntegration(t *testing.T) {
 	tests := []struct {
@@ -60,15 +62,17 @@ func TestEnhancedJsonEqualIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.JsonEqual(tt.expected, tt.actual)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
+
+			errorMsg := mock.errorCalls[0]
 
 			for _, expected := range tt.expectErrorContains {
 				if !strings.Contains(errorMsg, expected) {
@@ -117,8 +121,8 @@ func TestEnhancedBodyJsonEqualIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// Create mock HTTP response
 			response := &http.Response{
@@ -127,10 +131,12 @@ func TestEnhancedBodyJsonEqualIntegration(t *testing.T) {
 
 			assert.BodyJsonEqual(response, tt.expected)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
+
+			errorMsg := mock.errorCalls[0]
 
 			for _, expected := range tt.expectErrorContains {
 				if !strings.Contains(errorMsg, expected) {
@@ -177,15 +183,17 @@ func TestEnhancedDeepEqualIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.DeepEqual(tt.got, tt.want)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
+
+			errorMsg := mock.errorCalls[0]
 
 			for _, expected := range tt.expectErrorContains {
 				if !strings.Contains(errorMsg, expected) {

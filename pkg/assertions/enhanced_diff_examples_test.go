@@ -5,11 +5,7 @@ import (
 	"testing"
 )
 
-// silentT is a quiet TestingT implementation for examples
-type silentT struct{ failed bool }
-func (t *silentT) Helper() {}
-func (t *silentT) Errorf(format string, args ...interface{}) { t.failed = true }
-func (t *silentT) FailNow() { t.failed = true }
+// silentT is defined in assertions_passing_test.go - shared across test files
 
 // ExampleAssert_Equal_enhancedDiff demonstrates enhanced string diff output.
 func ExampleAssert_Equal_enhancedDiff() {

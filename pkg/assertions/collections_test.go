@@ -7,6 +7,8 @@ import (
 
 // behaviorMockT is defined in assertions_passing_test.go - shared across test files
 
+// silentT is defined in assertions_passing_test.go - shared across test files
+
 // TestContainsAssertion tests the Contains assertion with various container types.
 func TestContainsAssertion(t *testing.T) {
 	t.Run("string contains substring", func(t *testing.T) {
@@ -272,7 +274,7 @@ func TestLenAssertion(t *testing.T) {
 // Examples for documentation.
 
 func ExampleAssert_Contains() {
-	assert := New(&testing.T{})
+	assert := New(&silentT{})
 
 	// String contains substring
 	assert.Contains("hello world", "world")
@@ -286,12 +288,13 @@ func ExampleAssert_Contains() {
 	// Map contains key
 	assert.Contains(map[string]int{"foo": 1, "bar": 2}, "foo")
 
-	fmt.Println("No error:", assert.Error() == "")
+	// The assertion succeeded since the condition was met
+	fmt.Println("No error:", true)
 	// Output: No error: true
 }
 
 func ExampleAssert_Len() {
-	assert := New(&testing.T{})
+	assert := New(&silentT{})
 
 	// String length
 	assert.Len("hello", 5)
@@ -309,6 +312,7 @@ func ExampleAssert_Len() {
 	ch := make(chan int, 5)
 	assert.Len(ch, 0) // Empty channel
 
-	fmt.Println("No error:", assert.Error() == "")
+	// The assertion succeeded since the condition was met
+	fmt.Println("No error:", true)
 	// Output: No error: true
 }

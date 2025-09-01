@@ -1106,10 +1106,16 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 	// Ensure both are slices
 	if gotReflect.Kind() != reflect.Slice {
 		a.errorMsg = fmt.Sprintf("got is not a slice: %T", got)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Slice {
 		a.errorMsg = fmt.Sprintf("want is not a slice: %T", want)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -1118,6 +1124,9 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 	wantLen := wantReflect.Len()
 	if gotLen != wantLen {
 		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", gotLen, wantLen)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -1128,6 +1137,9 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 
 		if !reflect.DeepEqual(gotVal, wantVal) {
 			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %v\n  want: %v", i, gotVal, wantVal)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -1149,10 +1161,16 @@ func (a *Assert) MapDiff(got, want any) {
 	// Ensure both are maps
 	if gotReflect.Kind() != reflect.Map {
 		a.errorMsg = fmt.Sprintf("got is not a map: %T", got)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Map {
 		a.errorMsg = fmt.Sprintf("want is not a map: %T", want)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -1162,6 +1180,9 @@ func (a *Assert) MapDiff(got, want any) {
 		if !gotReflect.MapIndex(wantKey).IsValid() {
 			wantValue := wantReflect.MapIndex(wantKey).Interface()
 			a.errorMsg = fmt.Sprintf("maps differ: missing key %q\n  expected value: %v", wantKey.Interface(), wantValue)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -1172,6 +1193,9 @@ func (a *Assert) MapDiff(got, want any) {
 		if !wantReflect.MapIndex(gotKey).IsValid() {
 			gotValue := gotReflect.MapIndex(gotKey).Interface()
 			a.errorMsg = fmt.Sprintf("maps differ: unexpected key %q\n  got value: %v", gotKey.Interface(), gotValue)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -1183,6 +1207,9 @@ func (a *Assert) MapDiff(got, want any) {
 
 		if !reflect.DeepEqual(gotValue, wantValue) {
 			a.errorMsg = fmt.Sprintf("maps differ at key %q\n  got: %v\n  want: %v", key.Interface(), gotValue, wantValue)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -1204,10 +1231,16 @@ func (a *Assert) StructDiff(got, want any) {
 	// Ensure both are structs
 	if gotReflect.Kind() != reflect.Struct {
 		a.errorMsg = fmt.Sprintf("got is not a struct: %T", got)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Struct {
 		a.errorMsg = fmt.Sprintf("want is not a struct: %T", want)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -1216,6 +1249,9 @@ func (a *Assert) StructDiff(got, want any) {
 	wantType := wantReflect.Type()
 	if gotType != wantType {
 		a.errorMsg = fmt.Sprintf("struct types differ: got %s, want %s", gotType, wantType)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -1234,6 +1270,9 @@ func (a *Assert) StructDiff(got, want any) {
 
 		if !reflect.DeepEqual(gotFieldValue, wantFieldValue) {
 			a.errorMsg = fmt.Sprintf("structs differ at field %q\n  got: %v\n  want: %v", field.Name, gotFieldValue, wantFieldValue)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -1266,6 +1305,9 @@ func (a *Assert) DeepDiff(got, want any) {
 	// Check if types are different
 	if gotType != wantType {
 		a.errorMsg = fmt.Sprintf("types differ\n  got: %s\n  want: %s", gotType, wantType)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -1283,6 +1325,9 @@ func (a *Assert) DeepDiff(got, want any) {
 	default:
 		// For primitives and other types, provide basic comparison
 		a.errorMsg = fmt.Sprintf("values differ\n  got: %v\n  want: %v", got, want)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 }
@@ -1338,7 +1383,7 @@ func (a *Assert) JsonEqual(expected, actual string) {
 
 	// Handle parse errors
 	if err1 != nil && err2 != nil {
-		a.reportStringError(actual, expected, "both JSON strings are invalid")
+		a.reportError(actual, expected, "both JSON strings are invalid")
 		return
 	}
 	if err1 != nil {
@@ -1352,8 +1397,8 @@ func (a *Assert) JsonEqual(expected, actual string) {
 
 	// Compare parsed objects
 	if !reflect.DeepEqual(obj1, obj2) {
-		// Objects differ - provide enhanced JSON string comparison
-		a.reportStringError(actual, expected, "JSON objects differ")
+		// Objects differ - provide enhanced JSON string comparison  
+		a.reportError(actual, expected, "JSON objects differ")
 	}
 }
 
@@ -1432,7 +1477,7 @@ func (a *Assert) BodyJsonEqual(response *http.Response, expected interface{}) {
 	if err := json.Unmarshal(body, &actual); err != nil {
 		// JSON parsing failed - show the raw body with enhanced diff if expected is string
 		if expectedStr, ok := expected.(string); ok {
-			a.reportStringError(string(body), expectedStr, "response body is not valid JSON: "+err.Error())
+			a.reportError(string(body), expectedStr, "response body is not valid JSON: "+err.Error())
 		} else {
 			a.reportError(string(body), expected, "response body is not valid JSON: "+err.Error())
 		}
@@ -1443,7 +1488,7 @@ func (a *Assert) BodyJsonEqual(response *http.Response, expected interface{}) {
 	if !reflect.DeepEqual(actual, expected) {
 		// If expected is a string (JSON), show enhanced string comparison of raw JSON
 		if expectedStr, ok := expected.(string); ok {
-			a.reportStringError(string(body), expectedStr, "response JSON differs from expected")
+			a.reportError(string(body), expectedStr, "response JSON differs from expected")
 		} else {
 			// Expected is an object, use standard comparison
 			a.reportError(actual, expected, "response JSON differs from expected object")

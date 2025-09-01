@@ -408,9 +408,7 @@ func TestResourceCleanup(t *testing.T) {
 	t.Run("EvenuallyCleanup", func(t *testing.T) {
 		// This test ensures that resources are properly cleaned up
 		// We can't directly test goroutine counts, but we can test behaviour
-		// Test GoWise framework behavioral contract
-		mock := &behaviorMockT{}
-		assert := New(mock)
+		// Test GoWise framework behavioral contract with multiple iterations
 
 		// Run multiple Eventually assertions to stress test cleanup
 		for i := 0; i < 10; i++ {
@@ -804,11 +802,7 @@ func (m *mockT) Helper() {
 	m.helperCalled = true
 }
 
-// silentT is a quiet TestingT implementation for examples
-type silentT struct{ failed bool }
-func (t *silentT) Helper() {}
-func (t *silentT) Errorf(format string, args ...interface{}) { t.failed = true }
-func (t *silentT) FailNow() { t.failed = true }
+// silentT is defined in assertions_passing_test.go - shared across test files
 
 // containsString checks if a string contains a substring (helper function).
 func containsString(s, substr string) bool {
