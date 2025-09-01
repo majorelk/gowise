@@ -101,13 +101,13 @@ func New(t interface{}) *Assert {
 
 // WithDiffFormat returns a new Assert instance with the specified diff format preference.
 // This follows GoWise principles of immutable configuration.
-// NOTE: New Assert instance shares failure state with original for proper chaining.
+// NOTE: Creates an independent assertion chain with its own failure state.
 func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
-	// Share the same atomic failure state pointer for proper chaining
+	// Create new instance with independent failure state
 	newAssert := &Assert{
 		t:          a.t,
 		errorMsg:   a.errorMsg,
-		failed:     a.failed, // Share the same atomic int32 value
+		failed:     a.failed, // Copies the current failure state value
 		diffFormat: format,
 	}
 	return newAssert
@@ -1675,7 +1675,10 @@ func (a *Assert) HasCookie(response *http.Response, name string) {
 }
 
 // HeaderContains asserts that a HTTP response header contains a certain value.
-func (a *Assert) HeaderContains(response *http.Response, header, expected string) {
+func (a *Assert) HeaderContains(response *http.Response, header, expected string) *Assert {
+	if a.shouldSkipDueToFailure() {
+		return a
+	}
 	values, ok := response.Header[header]
 	if !ok {
 		a.reportErrorConsistent(expected, nil, "expected to have header")
@@ -1691,6 +1694,7 @@ func (a *Assert) HeaderContains(response *http.Response, header, expected string
 			a.reportErrorConsistent(expected, values, "expected header to contain value")
 		}
 	}
+	return a
 }
 
 func (a *Assert) ResponseTime(url string, maxTime time.Duration) {
