@@ -301,9 +301,11 @@ examples/
 
 **Current Implementation:**
 - **Fast-path optimisations** for comparable types avoiding reflection overhead
+- **Thread-safe assertions** using atomic operations for concurrent access
 - **Minimal allocations** in assertion hot paths
 - **Lazy formatting** - error messages only constructed on failure
 - **Efficient diff algorithms** for string and data structure comparison
+- **Fail-fast chaining** preserving only first error in assertion chains
 
 **Planned Performance Features:**
 - **Benchmark integration** with performance regression detection

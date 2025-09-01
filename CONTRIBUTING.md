@@ -138,6 +138,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **Memory conscious**: Track allocations in hot paths
 - **Lazy formatting**: Error messages only on failure
 
+### 5. Thread Safety
+
+- **Concurrent assertions**: All assertion chains are thread-safe using atomic operations
+- **Race detection**: Always test with `go test -race` to ensure concurrent correctness
+- **Fail-fast behavior**: Only the first failure in a chain is reported atomically
+- **Performance preserved**: Thread-safety maintains zero-allocation fast paths
+
 ## Testing Guidelines
 
 ### Unit Tests
@@ -146,23 +153,28 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 func TestEqual_Success(t *testing.T) {
     assert := New(t)
     
-    // Test behaviour, not implementation
-    assert.Equal(42, 42)
+    // Test behaviour, not implementation - now with thread-safe chaining
+    result := assert.Equal(42, 42).True(42 > 0).NotNil(&assert)
     
-    // Assert no error occurred
-    if assert.Error() != "" {
-        t.Errorf("Expected no error, got: %s", assert.Error())
+    // Verify no failure occurred
+    if result.HasFailed() {
+        t.Errorf("Expected successful chain, got: %s", result.Error())
     }
 }
 
 func TestEqual_Failure(t *testing.T) {
-    assert := New(&mockT{})
+    mock := &behaviorMockT{}
+    assert := New(mock)
     
-    assert.Equal(42, 24)
+    // Test fail-fast behavior - only first failure should be reported
+    result := assert.Equal(42, 24).True(false) // Second assertion becomes no-op
     
-    // Assert appropriate error occurred
-    if assert.Error() == "" {
-        t.Error("Expected error for unequal values")
+    // Framework behavior: FAIL = exactly 1 Errorf call
+    if len(mock.errorCalls) != 1 {
+        t.Errorf("Expected 1 error call for fail-fast, got %d: %v", len(mock.errorCalls), mock.errorCalls)
+    }
+    if !result.HasFailed() {
+        t.Error("Expected chain to indicate failure")
     }
 }
 ```
