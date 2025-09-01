@@ -103,12 +103,11 @@ func New(t interface{}) *Assert {
 // This follows GoWise principles of immutable configuration.
 // NOTE: New Assert instance shares failure state with original for proper chaining.
 func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
-	// Atomically copy failure state in a single operation to avoid race condition
-	failedState := atomic.LoadInt32(&a.failed)
+	// Share the same atomic failure state pointer for proper chaining
 	newAssert := &Assert{
 		t:          a.t,
 		errorMsg:   a.errorMsg,
-		failed:     failedState, // Direct assignment from atomic read
+		failed:     a.failed, // Share the same atomic int32 value
 		diffFormat: format,
 	}
 	return newAssert
