@@ -10,6 +10,8 @@ import (
 	"testing"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 func TestAssertions_Failing(t *testing.T) {
 	t.Run("Equal", func(t *testing.T) {
 		assert := New(t)
@@ -32,13 +34,21 @@ func TestAssertions_Failing(t *testing.T) {
 
 		for i, tc := range testCases {
 			t.Run(fmt.Sprintf("Test case %d", i+1), func(t *testing.T) {
-
+				// Behavioral test: verify framework behavior through TestingT interface
+				mock := &behaviorMockT{}
+				assert := New(mock)
 				assert.Equal(tc.expected, tc.actual)
 
-				if tc.pass && assert.Error() != "" {
-					t.Errorf("Test case %d failed, expected no error but got: %s", i+1, assert.Error())
-				} else if !tc.pass && assert.Error() == "" {
-					t.Errorf("Test case %d failed, expected an error but got none", i+1)
+				if tc.pass {
+					// Expected failure: assertion should call TestingT.Errorf exactly once
+					if len(mock.errorCalls) != 1 {
+						t.Errorf("Test case %d: expected assertion failure (1 Errorf call), got %d: %v", i+1, len(mock.errorCalls), mock.errorCalls)
+					}
+				} else {
+					// Expected success: assertion should call no TestingT methods
+					if len(mock.errorCalls) != 0 {
+						t.Errorf("Test case %d: expected assertion success (no Errorf calls), got %d: %v", i+1, len(mock.errorCalls), mock.errorCalls)
+					}
 				}
 			})
 		}
@@ -60,12 +70,21 @@ func TestAssertions_Failing(t *testing.T) {
 
 		for i, tc := range testCases {
 			t.Run(fmt.Sprintf("Test case %d", i+1), func(t *testing.T) {
+				// Behavioral test: verify framework behavior through TestingT interface
+				mock := &behaviorMockT{}
+				assert := New(mock)
 				assert.NotEqual(tc.expected, tc.actual)
 
-				if tc.pass && assert.Error() != "" {
-					t.Errorf("Test case %d failed, expected no error but got: %s", i+1, assert.Error())
-				} else if !tc.pass && assert.Error() == "" {
-					t.Errorf("Test case %d failed, expected an error but got none", i+1)
+				if tc.pass {
+					// Expected failure: assertion should call TestingT.Errorf exactly once
+					if len(mock.errorCalls) != 1 {
+						t.Errorf("Test case %d: expected assertion failure (1 Errorf call), got %d: %v", i+1, len(mock.errorCalls), mock.errorCalls)
+					}
+				} else {
+					// Expected success: assertion should call no TestingT methods
+					if len(mock.errorCalls) != 0 {
+						t.Errorf("Test case %d: expected assertion success (no Errorf calls), got %d: %v", i+1, len(mock.errorCalls), mock.errorCalls)
+					}
 				}
 			})
 		}
@@ -87,12 +106,21 @@ func TestAssertions_Failing(t *testing.T) {
 
 		for i, tc := range testCases {
 			t.Run(fmt.Sprintf("Test case %d", i+1), func(t *testing.T) {
+				// Behavioral test: verify framework behavior through TestingT interface
+				mock := &behaviorMockT{}
+				assert := New(mock)
 				assert.True(tc.value)
 
-				if tc.pass && assert.Error() != "" {
-					t.Errorf("Test case %d failed, expected no error but got: %s", i+1, assert.Error())
-				} else if !tc.pass && assert.Error() == "" {
-					t.Errorf("Test case %d failed, expected an error but got none", i+1)
+				if tc.pass {
+					// Expected failure: assertion should call TestingT.Errorf exactly once
+					if len(mock.errorCalls) != 1 {
+						t.Errorf("Test case %d: expected assertion failure (1 Errorf call), got %d: %v", i+1, len(mock.errorCalls), mock.errorCalls)
+					}
+				} else {
+					// Expected success: assertion should call no TestingT methods
+					if len(mock.errorCalls) != 0 {
+						t.Errorf("Test case %d: expected assertion success (no Errorf calls), got %d: %v", i+1, len(mock.errorCalls), mock.errorCalls)
+					}
 				}
 			})
 		}
@@ -113,12 +141,21 @@ func TestAssertions_Failing(t *testing.T) {
 
 		for i, tc := range testCases {
 			t.Run(fmt.Sprintf("Test case %d", i+1), func(t *testing.T) {
+				// Behavioral test: verify framework behavior through TestingT interface
+				mock := &behaviorMockT{}
+				assert := New(mock)
 				assert.False(tc.value)
 
-				if tc.pass && assert.Error() != "" {
-					t.Errorf("Test case %d failed, expected no error but got: %s", i+1, assert.Error())
-				} else if !tc.pass && assert.Error() == "" {
-					t.Errorf("Test case %d failed, expected an error but got none", i+1)
+				if tc.pass {
+					// Expected failure: assertion should call TestingT.Errorf exactly once
+					if len(mock.errorCalls) != 1 {
+						t.Errorf("Test case %d: expected assertion failure (1 Errorf call), got %d: %v", i+1, len(mock.errorCalls), mock.errorCalls)
+					}
+				} else {
+					// Expected success: assertion should call no TestingT methods
+					if len(mock.errorCalls) != 0 {
+						t.Errorf("Test case %d: expected assertion success (no Errorf calls), got %d: %v", i+1, len(mock.errorCalls), mock.errorCalls)
+					}
 				}
 			})
 		}

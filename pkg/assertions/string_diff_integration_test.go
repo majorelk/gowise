@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestStringDiffIntegration tests that the diff infrastructure is properly integrated
 // with the Equal assertion for enhanced string error messages.
 func TestStringDiffIntegration(t *testing.T) {
@@ -63,16 +65,18 @@ line 3`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a dummy testing.T that captures failures
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// This should fail and generate an error message
 			assert.Equal(tt.got, tt.want)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
+
+			errorMsg := mock.errorCalls[0]
 
 			// Check that all expected parts are in the error message
 			for _, expected := range tt.expectErrorContains {
@@ -86,16 +90,18 @@ line 3`,
 
 // TestStringDiffVsNonString ensures we don't break existing behaviour for non-string types
 func TestStringDiffVsNonString(t *testing.T) {
-	dummyT := &capturingT{}
-	assert := New(dummyT)
+	mock := &behaviorMockT{}
+	assert := New(mock)
 
 	// Test non-string types still get the old error format
 	assert.Equal(42, 24)
 
-	errorMsg := assert.Error()
-	if errorMsg == "" {
-		t.Fatalf("Expected error message but got none")
+	// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+	if len(mock.errorCalls) != 1 {
+		t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 	}
+
+	errorMsg := mock.errorCalls[0]
 
 	// Should contain the traditional format
 	expectedParts := []string{
@@ -170,16 +176,18 @@ line 2`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a dummy testing.T that captures failures
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// This should fail and generate enhanced error message
 			assert.Equal(tt.got, tt.want)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
+
+			errorMsg := mock.errorCalls[0]
 
 			// Check that all expected parts are in the error message
 			for _, expected := range tt.expectErrorContains {
@@ -244,15 +252,17 @@ line 8 changed`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.Equal(tt.got, tt.want)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
+
+			errorMsg := mock.errorCalls[0]
 
 			// Check format type is used
 			if !strings.Contains(errorMsg, tt.expectFormatType) {
@@ -321,15 +331,17 @@ line 4`
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dummyT := &capturingT{}
-			assert := New(dummyT).WithDiffFormat(tt.diffFormat)
+			mock := &behaviorMockT{}
+			assert := New(mock).WithDiffFormat(tt.diffFormat)
 
 			assert.Equal(multiLineText, changedText)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
+
+			errorMsg := mock.errorCalls[0]
 
 			// Check format type is used
 			if !strings.Contains(errorMsg, tt.expectFormatType) {

@@ -85,6 +85,7 @@ const (
 type Assert struct {
 	t          interface{}
 	errorMsg   string
+	failed     bool       // Track if any assertion has failed (for fail-fast chaining)
 	diffFormat DiffFormat // Preferred format for multi-line string diffs
 }
 
@@ -102,44 +103,61 @@ func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
 	return &Assert{
 		t:          a.t,
 		errorMsg:   a.errorMsg,
+		failed:     a.failed,
 		diffFormat: format,
 	}
 }
 
 // Equal asserts that two values are equal.
 // Uses fast-path comparison for comparable types, falls back to reflect.DeepEqual.
-func (a *Assert) Equal(got, want interface{}) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.Equal(user.ID, 123).True(user.Active).Contains(user.Email, "@")
+func (a *Assert) Equal(got, want interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	// Fast path for nil comparison
 	if got == nil && want == nil {
-		return
+		return a
 	}
 	if (got == nil) != (want == nil) {
 		a.reportError(got, want, "values differ")
-		return
+		return a
 	}
 
 	// Fast path for comparable types using type assertion
 	if isComparable(got, want) && got == want {
-		return
+		return a
 	}
 	if isComparable(got, want) && got != want {
 		a.reportError(got, want, "values differ")
-		return
+		return a
 	}
 
 	// Fallback to deep equality
 	if !reflect.DeepEqual(got, want) {
 		a.reportError(got, want, "values differ")
 	}
+	return a
 }
 
 // NotEqual asserts that two values are not equal.
 // Uses fast-path comparison for comparable types, falls back to reflect.DeepEqual.
-func (a *Assert) NotEqual(got, want interface{}) {
+func (a *Assert) NotEqual(got, want interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -147,10 +165,10 @@ func (a *Assert) NotEqual(got, want interface{}) {
 	// Fast path for nil comparison
 	if got == nil && want == nil {
 		a.reportError(got, want, "values should not be equal")
-		return
+		return a
 	}
 	if (got == nil) != (want == nil) {
-		return // different nil states = not equal, which is what we want
+		return a // different nil states = not equal, which is what we want
 	}
 
 	// Fast path for comparable types
@@ -158,18 +176,24 @@ func (a *Assert) NotEqual(got, want interface{}) {
 		if got == want {
 			a.reportError(got, want, "values should not be equal")
 		}
-		return
+		return a
 	}
 
 	// Fallback to deep equality
 	if reflect.DeepEqual(got, want) {
 		a.reportError(got, want, "values should not be equal")
 	}
+	return a
 }
 
 // DeepEqual asserts that two values are deeply equal.
 // Always uses reflect.DeepEqual for thorough comparison.
-func (a *Assert) DeepEqual(got, want interface{}) {
+func (a *Assert) DeepEqual(got, want interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -177,11 +201,17 @@ func (a *Assert) DeepEqual(got, want interface{}) {
 	if !reflect.DeepEqual(got, want) {
 		a.reportError(got, want, "values differ")
 	}
+	return a
 }
 
 // Same asserts that two values have the same pointer identity.
 // Uses == comparison which tests for pointer identity.
-func (a *Assert) Same(got, want interface{}) {
+func (a *Assert) Same(got, want interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -189,14 +219,25 @@ func (a *Assert) Same(got, want interface{}) {
 	// Use == for pointer identity comparison
 	// This works for pointers, interfaces, channels, maps, slices, and functions
 	if got == want {
-		return
+		return a
 	}
 
 	a.reportError(got, want, "expected same pointer identity")
+	return a
 }
 
 // True asserts that a boolean condition is true.
-func (a *Assert) True(condition bool) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.True(user.Active).Equal(user.Status, "enabled")
+func (a *Assert) True(condition bool) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -204,10 +245,16 @@ func (a *Assert) True(condition bool) {
 	if !condition {
 		a.reportError(true, condition, "expected condition to be true")
 	}
+	return a
 }
 
 // False asserts that a boolean condition is false.
-func (a *Assert) False(condition bool) {
+func (a *Assert) False(condition bool) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -215,25 +262,50 @@ func (a *Assert) False(condition bool) {
 	if condition {
 		a.reportError(false, condition, "expected condition to be false")
 	}
+	return a
 }
 
 // reportError is a helper function to report test failures.
 // Uses lazy formatting and UK English.
+// For chaining: only reports the first error to preserve fail-fast behaviour.
 func (a *Assert) reportError(got, want interface{}, message string) {
+	// If already failed, don't overwrite the first error (fail-fast chaining)
+	if a.failed {
+		return
+	}
+
+	// Mark as failed
+	a.failed = true
+
+	// Set helper context for better stack traces
+	if t, ok := a.t.(interface{ Helper() }); ok {
+		t.Helper()
+	}
+
 	// Check if both values are strings and use diff for better error messages
 	if gotStr, gotOK := got.(string); gotOK {
 		if wantStr, wantOK := want.(string); wantOK {
 			a.reportStringError(gotStr, wantStr, message)
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
 
 	// Default error message for non-string types
 	a.errorMsg = fmt.Sprintf("%s\n  got:  %#v\n  want: %#v", message, got, want)
+	// Call the TestingT interface to actually fail the test
+	if testingT, ok := a.t.(TestingT); ok {
+		testingT.Errorf("%s", a.errorMsg)
+	}
 }
 
 // reportCollectionError provides enhanced error messages for collection comparisons using diff infrastructure
 func (a *Assert) reportCollectionError(result diff.CollectionDiffResult) {
+	// Note: failure marking is handled by the caller
+
 	var errorMsg strings.Builder
 	errorMsg.WriteString(result.Summary)
 
@@ -247,6 +319,8 @@ func (a *Assert) reportCollectionError(result diff.CollectionDiffResult) {
 
 // reportStringError provides enhanced error messages for string comparisons using diff infrastructure
 func (a *Assert) reportStringError(got, want string, message string) {
+	// Note: failure marking is handled by the caller (reportError)
+
 	// Choose appropriate diff function based on string characteristics
 	var result diff.DiffResult
 
@@ -363,9 +437,19 @@ func (a *Assert) Error() string {
 	return a.errorMsg
 }
 
+// HasFailed returns true if any assertion in the chain has failed.
+// This enables fail-fast chaining behaviour.
+func (a *Assert) HasFailed() bool {
+	return a.failed
+}
+
 // Nil asserts that a value is nil.
 // Supports pointers, interfaces, slices, maps, channels, and functions.
-func (a *Assert) Nil(value interface{}) {
+func (a *Assert) Nil(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -373,11 +457,16 @@ func (a *Assert) Nil(value interface{}) {
 	if !isNil(value) {
 		a.reportError(nil, value, "expected value to be nil")
 	}
+	return a
 }
 
 // NotNil asserts that a value is not nil.
 // Supports pointers, interfaces, slices, maps, channels, and functions.
-func (a *Assert) NotNil(value interface{}) {
+func (a *Assert) NotNil(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -385,6 +474,7 @@ func (a *Assert) NotNil(value interface{}) {
 	if isNil(value) {
 		a.reportError("not nil", value, "expected value to not be nil")
 	}
+	return a
 }
 
 // isNil is a helper function to check if a value is nil.
@@ -410,68 +500,174 @@ func isNil(value interface{}) bool {
 
 // Contains asserts that a container includes a specific item.
 // Supports strings (substring), slices, arrays, and maps (key lookup).
-func (a *Assert) Contains(container, item interface{}) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.Contains(user.Roles, "admin").Len(user.Roles, 2)
+func (a *Assert) Contains(container, item interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	result := diff.CollectionContainsDiff(container, item)
 	if result.HasDiff {
-		a.reportCollectionError(result)
+		if !a.failed {
+			a.failed = true
+			// Set helper context
+			if t, ok := a.t.(interface{ Helper() }); ok {
+				t.Helper()
+			}
+			a.reportCollectionError(result)
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
+		}
 	}
+	return a
 }
 
 // Greater asserts that the first value is greater than the second.
-func (a *Assert) Greater(v1, v2 float64) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.Greater(response.StatusCode, 199).Less(response.StatusCode, 300)
+func (a *Assert) Greater(v1, v2 float64) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if v1 <= v2 {
 		a.reportError(v1, v2, "expected to be greater")
 	}
+	return a
 }
 
 // Less asserts that the first value is less than the second.
-func (a *Assert) Less(v1, v2 float64) {
+func (a *Assert) Less(v1, v2 float64) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if v1 >= v2 {
 		a.reportError(v1, v2, "expected to be less")
 	}
+	return a
 }
 
 // HasPrefix asserts that a string starts with a certain substring.
-func (a *Assert) HasPrefix(s, prefix string) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.HasPrefix(url, "https://").Contains(url, "api")
+func (a *Assert) HasPrefix(s, prefix string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if !strings.HasPrefix(s, prefix) {
 		a.reportError(prefix, s, "expected to have prefix")
 	}
+	return a
 }
 
 // HasSuffix asserts that a string ends with a certain substring.
-func (a *Assert) HasSuffix(s, suffix string) {
+func (a *Assert) HasSuffix(s, suffix string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if !strings.HasSuffix(s, suffix) {
 		a.reportError(suffix, s, "expected to have suffix")
 	}
+	return a
 }
 
-// InDelta asserts that the difference between two numeric values is within a certain range.
-func (a *Assert) InDelta(expected, actual, delta float64) {
-	if math.Abs(expected-actual) > delta {
-		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %v", delta))
+// WithinTolerance asserts that the difference between two numeric values is within a certain tolerance.
+// This is useful for floating-point comparisons where exact equality is not reliable.
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.WithinTolerance(response.Duration, 1.5, 0.1).True(response.Success)
+func (a *Assert) WithinTolerance(expected, actual, tolerance float64) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
 	}
+
+	if math.Abs(expected-actual) > tolerance {
+		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within tolerance %v", tolerance))
+	}
+	return a
 }
 
-// InEpsilon asserts that the difference between two numeric values is within a certain percentage.
-func (a *Assert) InEpsilon(expected, actual, epsilon float64) {
-	if math.Abs((expected-actual)/((expected+actual)/2)) > epsilon {
-		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %v percent", epsilon*100))
+// InDelta is an alias for WithinTolerance for backward compatibility.
+// Deprecated: Use WithinTolerance for better readability.
+func (a *Assert) InDelta(expected, actual, delta float64) *Assert {
+	return a.WithinTolerance(expected, actual, delta)
+}
+
+// WithinPercentage asserts that the difference between two numeric values is within a certain percentage.
+// The percentage should be expressed as a decimal (e.g., 0.1 for 10%).
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.WithinPercentage(actual, expected, 0.05).NoError(validationErr)
+func (a *Assert) WithinPercentage(expected, actual, percentage float64) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
 	}
+
+	if math.Abs((expected-actual)/((expected+actual)/2)) > percentage {
+		a.reportError(expected, actual, fmt.Sprintf("expected difference to be within %.1f percent", percentage*100))
+	}
+	return a
+}
+
+// InEpsilon is an alias for WithinPercentage for backward compatibility.
+// Deprecated: Use WithinPercentage for better readability.
+func (a *Assert) InEpsilon(expected, actual, epsilon float64) *Assert {
+	return a.WithinPercentage(expected, actual, epsilon)
 }
 
 // Regexp asserts that a string matches a regular expression.
-func (a *Assert) Regexp(pattern, str string) {
+func (a *Assert) Regexp(pattern, str string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if matched, _ := regexp.MatchString(pattern, str); !matched {
 		a.reportError(pattern, str, "expected to match regular expression")
 	}
+	return a
 }
 
 // NoError asserts that a function call returns no error.
-func (a *Assert) NoError(err error) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.NoError(err).True(result != nil).Contains(result.Status, "success")
+func (a *Assert) NoError(err error) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -479,10 +675,16 @@ func (a *Assert) NoError(err error) {
 	if err != nil {
 		a.reportError("no error", err, "expected no error")
 	}
+	return a
 }
 
 // ErrorType asserts that a function call returns a specific error type.
-func (a *Assert) ErrorType(expected, actual error) {
+func (a *Assert) ErrorType(expected, actual error) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -494,12 +696,17 @@ func (a *Assert) ErrorType(expected, actual error) {
 		// Use cleaner type name formatting for error message
 		expectedTypeName := expectedType.String()
 		actualTypeName := actualType.String()
-		a.errorMsg = fmt.Sprintf("expected error of different type\n  expected: %s\n  actual:   %s", expectedTypeName, actualTypeName)
+		a.reportError(actualTypeName, expectedTypeName, "expected error of different type")
 	}
+	return a
 }
 
 // HasError asserts that an error occurred (error is not nil).
-func (a *Assert) HasError(err error) {
+func (a *Assert) HasError(err error) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -507,11 +714,16 @@ func (a *Assert) HasError(err error) {
 	if err == nil {
 		a.reportError("an error", nil, "expected an error but got none")
 	}
+	return a
 }
 
 // ErrorIs asserts that an error matches a target error using errors.Is.
 // This follows Go 1.13+ error wrapping patterns.
-func (a *Assert) ErrorIs(err, target error) {
+func (a *Assert) ErrorIs(err, target error) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -519,11 +731,16 @@ func (a *Assert) ErrorIs(err, target error) {
 	if !errors.Is(err, target) {
 		a.reportError(target, err, "expected error to match target")
 	}
+	return a
 }
 
 // ErrorAs asserts that an error can be assigned to a target type using errors.As.
 // This follows Go 1.13+ error wrapping patterns.
-func (a *Assert) ErrorAs(err error, target interface{}) {
+func (a *Assert) ErrorAs(err error, target interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -531,52 +748,79 @@ func (a *Assert) ErrorAs(err error, target interface{}) {
 	if !errors.As(err, target) {
 		a.reportError(reflect.TypeOf(target).Elem(), err, "expected error to be assignable to target type")
 	}
+	return a
 }
 
 // ErrorContains asserts that an error's message contains a specific substring.
-func (a *Assert) ErrorContains(err error, substring string) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.ErrorContains(err, "timeout").ErrorIs(err, context.DeadlineExceeded)
+func (a *Assert) ErrorContains(err error, substring string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	if err == nil {
 		a.reportError(substring, nil, "expected error but got nil")
-		return
+		return a
 	}
 
 	errorMessage := err.Error()
 	if !strings.Contains(errorMessage, substring) {
 		a.reportError(substring, errorMessage, "expected error message to contain")
 	}
+	return a
 }
 
 // ErrorMatches asserts that an error's message matches a regular expression pattern.
-func (a *Assert) ErrorMatches(err error, pattern string) {
+func (a *Assert) ErrorMatches(err error, pattern string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	if err == nil {
 		a.reportError(pattern, nil, "expected error but got nil")
-		return
+		return a
 	}
 
 	errorMessage := err.Error()
 	matched, regexErr := regexp.MatchString(pattern, errorMessage)
 	if regexErr != nil {
 		a.reportError(pattern, regexErr, "invalid regular expression pattern")
-		return
+		return a
 	}
 
 	if !matched {
 		// Use direct error message format to avoid string diff confusion
 		// Show raw pattern (no quotes) for better readability
 		a.errorMsg = fmt.Sprintf("expected error message to match pattern\n  pattern: %s\n  error:   %q", pattern, errorMessage)
+		a.failed = true
+		// Call the TestingT interface to actually fail the test
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 	}
+	return a
 }
 
 // IsEmpty asserts that a given array, slice, map, or string is empty.
-func (a *Assert) IsEmpty(value interface{}) {
+func (a *Assert) IsEmpty(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	valueType := reflect.TypeOf(value)
 	switch valueType.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
@@ -586,10 +830,16 @@ func (a *Assert) IsEmpty(value interface{}) {
 	default:
 		a.reportError(nil, value, "invalid type for IsEmpty")
 	}
+	return a
 }
 
 // IsNotEmpty asserts that a given array, slice, map, or string is not empty.
-func (a *Assert) IsNotEmpty(value interface{}) {
+func (a *Assert) IsNotEmpty(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	valueType := reflect.TypeOf(value)
 	switch valueType.Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
@@ -599,32 +849,65 @@ func (a *Assert) IsNotEmpty(value interface{}) {
 	default:
 		a.reportError(nil, value, "invalid type for IsNotEmpty")
 	}
+	return a
 }
 
 // Len asserts that a container has the expected length.
 // Supports strings, slices, arrays, maps, and channels.
-func (a *Assert) Len(container interface{}, expectedLen int) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.Len(users, 3).Contains(users[0].Email, "@").True(len(users) > 0)
+func (a *Assert) Len(container interface{}, expectedLen int) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
 
 	result := diff.CollectionLenDiff(container, expectedLen)
 	if result.HasDiff {
-		a.reportCollectionError(result)
+		if !a.failed {
+			a.failed = true
+			// Set helper context
+			if t, ok := a.t.(interface{ Helper() }); ok {
+				t.Helper()
+			}
+			a.reportCollectionError(result)
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
+		}
 	}
+	return a
 }
 
 // Implements asserts that an object implements a certain interface.
-func (a *Assert) Implements(object, interfaceObj interface{}) {
+func (a *Assert) Implements(object, interfaceObj interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	objectType := reflect.TypeOf(object)
 	interfaceType := reflect.TypeOf(interfaceObj).Elem()
 	if !objectType.Implements(interfaceType) {
 		a.reportError(interfaceType, objectType, "expected to implement interface")
 	}
+	return a
 }
 
 // IsZero asserts that a given numeric value or time.Time is zero.
-func (a *Assert) IsZero(value interface{}) {
+func (a *Assert) IsZero(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	switch v := value.(type) {
 	case int, int8, int16, int32, int64:
 		if v != 0 {
@@ -645,10 +928,16 @@ func (a *Assert) IsZero(value interface{}) {
 	default:
 		a.reportError(nil, value, "invalid type for IsZero")
 	}
+	return a
 }
 
 // IsNotZero asserts that a given numeric value or time.Time is not zero.
-func (a *Assert) IsNotZero(value interface{}) {
+func (a *Assert) IsNotZero(value interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	switch v := value.(type) {
 	case int, int8, int16, int32, int64:
 		if v == 0 {
@@ -669,24 +958,46 @@ func (a *Assert) IsNotZero(value interface{}) {
 	default:
 		a.reportError(nil, value, "invalid type for IsNotZero")
 	}
+	return a
 }
 
 // IsWithinDuration asserts that a given time.Time is within a certain duration from another time.Time.
-func (a *Assert) IsWithinDuration(t1, t2 time.Time, d time.Duration) {
+func (a *Assert) IsWithinDuration(t1, t2 time.Time, d time.Duration) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if abs := t1.Sub(t2); abs > d {
 		a.reportError(d, abs, "expected to be within duration")
 	}
+	return a
 }
 
 // MatchesPattern asserts that a string matches a certain pattern.
-func (a *Assert) MatchesPattern(pattern, s string) {
+func (a *Assert) MatchesPattern(pattern, s string) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if matched, _ := regexp.MatchString(pattern, s); !matched {
 		a.reportError(pattern, s, "expected to match pattern")
 	}
+	return a
 }
 
 // Panics asserts that a certain function panics.
-func (a *Assert) Panics(f func()) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.Panics(func() { divide(1, 0) }).True(recovered)
+func (a *Assert) Panics(f func()) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -698,10 +1009,15 @@ func (a *Assert) Panics(f func()) {
 	}()
 
 	f()
+	return a
 }
 
 // PanicsWith asserts that a certain function panics with a specific value.
-func (a *Assert) PanicsWith(f func(), expected interface{}) {
+func (a *Assert) PanicsWith(f func(), expected interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -713,10 +1029,15 @@ func (a *Assert) PanicsWith(f func(), expected interface{}) {
 	}()
 
 	f()
+	return a
 }
 
 // NotPanics asserts that a certain function does not panic.
-func (a *Assert) NotPanics(f func()) {
+func (a *Assert) NotPanics(f func()) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -728,11 +1049,17 @@ func (a *Assert) NotPanics(f func()) {
 	}()
 
 	f()
+	return a
 }
 
 // SliceDiff asserts that two slices are equal with enhanced diff output for failures.
 // Provides detailed context showing which elements differ and their positions.
-func (a *Assert) SliceDiff(got, want []int) {
+func (a *Assert) SliceDiff(got, want []int) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -740,18 +1067,29 @@ func (a *Assert) SliceDiff(got, want []int) {
 	// Check lengths first
 	if len(got) != len(want) {
 		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", len(got), len(want))
-		return
+		a.failed = true
+		// Call the TestingT interface to actually fail the test
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
+		return a
 	}
 
 	// Find first difference
 	for i, gotVal := range got {
 		if gotVal != want[i] {
 			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %d\n  want: %d", i, gotVal, want[i])
-			return
+			a.failed = true
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
+			return a
 		}
 	}
 
 	// Slices are identical - no error
+	return a
 }
 
 // SliceDiffGeneric asserts that two slices of any comparable type are equal with enhanced diff output.
@@ -768,10 +1106,16 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 	// Ensure both are slices
 	if gotReflect.Kind() != reflect.Slice {
 		a.errorMsg = fmt.Sprintf("got is not a slice: %T", got)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Slice {
 		a.errorMsg = fmt.Sprintf("want is not a slice: %T", want)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -780,6 +1124,9 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 	wantLen := wantReflect.Len()
 	if gotLen != wantLen {
 		a.errorMsg = fmt.Sprintf("slices differ in length\n  got: %d\n  want: %d", gotLen, wantLen)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -790,6 +1137,9 @@ func (a *Assert) SliceDiffGeneric(got, want any) {
 
 		if !reflect.DeepEqual(gotVal, wantVal) {
 			a.errorMsg = fmt.Sprintf("slices differ at index %d\n  got: %v\n  want: %v", i, gotVal, wantVal)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -811,10 +1161,16 @@ func (a *Assert) MapDiff(got, want any) {
 	// Ensure both are maps
 	if gotReflect.Kind() != reflect.Map {
 		a.errorMsg = fmt.Sprintf("got is not a map: %T", got)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Map {
 		a.errorMsg = fmt.Sprintf("want is not a map: %T", want)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -824,6 +1180,9 @@ func (a *Assert) MapDiff(got, want any) {
 		if !gotReflect.MapIndex(wantKey).IsValid() {
 			wantValue := wantReflect.MapIndex(wantKey).Interface()
 			a.errorMsg = fmt.Sprintf("maps differ: missing key %q\n  expected value: %v", wantKey.Interface(), wantValue)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -834,6 +1193,9 @@ func (a *Assert) MapDiff(got, want any) {
 		if !wantReflect.MapIndex(gotKey).IsValid() {
 			gotValue := gotReflect.MapIndex(gotKey).Interface()
 			a.errorMsg = fmt.Sprintf("maps differ: unexpected key %q\n  got value: %v", gotKey.Interface(), gotValue)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -845,6 +1207,9 @@ func (a *Assert) MapDiff(got, want any) {
 
 		if !reflect.DeepEqual(gotValue, wantValue) {
 			a.errorMsg = fmt.Sprintf("maps differ at key %q\n  got: %v\n  want: %v", key.Interface(), gotValue, wantValue)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -866,10 +1231,16 @@ func (a *Assert) StructDiff(got, want any) {
 	// Ensure both are structs
 	if gotReflect.Kind() != reflect.Struct {
 		a.errorMsg = fmt.Sprintf("got is not a struct: %T", got)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 	if wantReflect.Kind() != reflect.Struct {
 		a.errorMsg = fmt.Sprintf("want is not a struct: %T", want)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -878,6 +1249,9 @@ func (a *Assert) StructDiff(got, want any) {
 	wantType := wantReflect.Type()
 	if gotType != wantType {
 		a.errorMsg = fmt.Sprintf("struct types differ: got %s, want %s", gotType, wantType)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -896,6 +1270,9 @@ func (a *Assert) StructDiff(got, want any) {
 
 		if !reflect.DeepEqual(gotFieldValue, wantFieldValue) {
 			a.errorMsg = fmt.Sprintf("structs differ at field %q\n  got: %v\n  want: %v", field.Name, gotFieldValue, wantFieldValue)
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 		}
 	}
@@ -928,6 +1305,9 @@ func (a *Assert) DeepDiff(got, want any) {
 	// Check if types are different
 	if gotType != wantType {
 		a.errorMsg = fmt.Sprintf("types differ\n  got: %s\n  want: %s", gotType, wantType)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -945,22 +1325,37 @@ func (a *Assert) DeepDiff(got, want any) {
 	default:
 		// For primitives and other types, provide basic comparison
 		a.errorMsg = fmt.Sprintf("values differ\n  got: %v\n  want: %v", got, want)
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 }
 
 // Condition asserts that a certain condition is true.
-func (a *Assert) Condition(condition bool) {
+func (a *Assert) Condition(condition bool) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if !condition {
 		a.reportError(true, condition, "expected condition to be true")
 	}
+	return a
 }
 
 // Conditionf asserts that a certain condition is true with a formatted message.
-func (a *Assert) Conditionf(condition bool, format string, args ...interface{}) {
+func (a *Assert) Conditionf(condition bool, format string, args ...interface{}) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if !condition {
 		a.reportError(true, condition, fmt.Sprintf(format, args...))
 	}
+	return a
 }
 
 // HttpStatus asserts that a HTTP response has a certain status code.
@@ -988,7 +1383,7 @@ func (a *Assert) JsonEqual(expected, actual string) {
 
 	// Handle parse errors
 	if err1 != nil && err2 != nil {
-		a.reportStringError(actual, expected, "both JSON strings are invalid")
+		a.reportError(actual, expected, "both JSON strings are invalid")
 		return
 	}
 	if err1 != nil {
@@ -1003,7 +1398,7 @@ func (a *Assert) JsonEqual(expected, actual string) {
 	// Compare parsed objects
 	if !reflect.DeepEqual(obj1, obj2) {
 		// Objects differ - provide enhanced JSON string comparison
-		a.reportStringError(actual, expected, "JSON objects differ")
+		a.reportError(actual, expected, "JSON objects differ")
 	}
 }
 
@@ -1082,7 +1477,7 @@ func (a *Assert) BodyJsonEqual(response *http.Response, expected interface{}) {
 	if err := json.Unmarshal(body, &actual); err != nil {
 		// JSON parsing failed - show the raw body with enhanced diff if expected is string
 		if expectedStr, ok := expected.(string); ok {
-			a.reportStringError(string(body), expectedStr, "response body is not valid JSON: "+err.Error())
+			a.reportError(string(body), expectedStr, "response body is not valid JSON: "+err.Error())
 		} else {
 			a.reportError(string(body), expected, "response body is not valid JSON: "+err.Error())
 		}
@@ -1093,7 +1488,7 @@ func (a *Assert) BodyJsonEqual(response *http.Response, expected interface{}) {
 	if !reflect.DeepEqual(actual, expected) {
 		// If expected is a string (JSON), show enhanced string comparison of raw JSON
 		if expectedStr, ok := expected.(string); ok {
-			a.reportStringError(string(body), expectedStr, "response JSON differs from expected")
+			a.reportError(string(body), expectedStr, "response JSON differs from expected")
 		} else {
 			// Expected is an object, use standard comparison
 			a.reportError(actual, expected, "response JSON differs from expected object")
@@ -1198,7 +1593,18 @@ func defaultEventuallyConfig() EventuallyConfig {
 // Eventually asserts that a condition becomes true within a timeout period.
 // Uses configurable polling with optional exponential backoff.
 // Follows GoWise principles of deterministic timing and resource cleanup.
-func (a *Assert) Eventually(condition func() bool, timeout, interval time.Duration) {
+// Returns *Assert to enable method chaining.
+//
+// Example:
+//
+//	assert.Eventually(func() bool { return service.IsReady() }, 5*time.Second, 100*time.Millisecond).
+//	      True(service.Status == "running")
+func (a *Assert) Eventually(condition func() bool, timeout, interval time.Duration) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1211,12 +1617,18 @@ func (a *Assert) Eventually(condition func() bool, timeout, interval time.Durati
 	}
 
 	a.eventuallyWithConfig(condition, config)
+	return a
 }
 
 // Never asserts that a condition never becomes true within a timeout period.
 // Uses configurable polling with optional exponential backoff.
 // Fails immediately if the condition becomes true at any point.
-func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) {
+func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1229,11 +1641,17 @@ func (a *Assert) Never(condition func() bool, timeout, interval time.Duration) {
 	}
 
 	a.neverWithConfig(condition, config)
+	return a
 }
 
 // EventuallyWith asserts that a condition becomes true using custom configuration.
 // Provides fine-grained control over timeout, polling, and backoff behaviour.
-func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) {
+func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1250,11 +1668,17 @@ func (a *Assert) EventuallyWith(condition func() bool, config EventuallyConfig) 
 	}
 
 	a.eventuallyWithConfig(condition, config)
+	return a
 }
 
 // NeverWith asserts that a condition never becomes true using custom configuration.
 // Provides fine-grained control over timeout, polling, and backoff behaviour.
-func (a *Assert) NeverWith(condition func() bool, config EventuallyConfig) {
+func (a *Assert) NeverWith(condition func() bool, config EventuallyConfig) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1271,6 +1695,7 @@ func (a *Assert) NeverWith(condition func() bool, config EventuallyConfig) {
 	}
 
 	a.neverWithConfig(condition, config)
+	return a
 }
 
 // eventuallyWithConfig implements the core Eventually logic with proper resource management.
@@ -1299,8 +1724,14 @@ func (a *Assert) eventuallyWithConfig(condition func() bool, config EventuallyCo
 		case <-ctx.Done():
 			// Timeout reached - report failure with timing context
 			elapsed := time.Since(startTime)
+			a.failed = true
 			a.errorMsg = fmt.Sprintf("Eventually: condition not met within timeout\n  timeout: %v\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 				config.Timeout, elapsed, attempts, currentInterval)
+
+			// Call the TestingT interface to actually fail the test
+			if testingT, ok := a.t.(TestingT); ok {
+				testingT.Errorf("%s", a.errorMsg)
+			}
 			return
 
 		case <-ticker.C:
@@ -1343,8 +1774,14 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 	attempts++
 	if condition() {
 		elapsed := time.Since(startTime)
+		a.failed = true
 		a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  interval: %v",
 			elapsed, attempts, config.Interval)
+
+		// Call the TestingT interface to actually fail the test
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
 		return
 	}
 
@@ -1362,8 +1799,14 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 			attempts++
 			if condition() {
 				elapsed := time.Since(startTime)
+				a.failed = true
 				a.errorMsg = fmt.Sprintf("Never: condition became true unexpectedly\n  elapsed: %v\n  attempts: %d\n  final interval: %v",
 					elapsed, attempts, currentInterval)
+
+				// Call the TestingT interface to actually fail the test
+				if testingT, ok := a.t.(TestingT); ok {
+					testingT.Errorf("%s", a.errorMsg)
+				}
 				return
 			}
 
@@ -1388,7 +1831,12 @@ func (a *Assert) neverWithConfig(condition func() bool, config EventuallyConfig)
 
 // WithinTimeout asserts that a function completes execution within the specified timeout.
 // Uses proper resource management and provides detailed error messages with timing context.
-func (a *Assert) WithinTimeout(f func(), timeout time.Duration) {
+func (a *Assert) WithinTimeout(f func(), timeout time.Duration) *Assert {
+	// Fail-fast: if already failed, return immediately
+	if a.failed {
+		return a
+	}
+
 	if t, ok := a.t.(interface{ Helper() }); ok {
 		t.Helper()
 	}
@@ -1422,11 +1870,17 @@ func (a *Assert) WithinTimeout(f func(), timeout time.Duration) {
 	select {
 	case <-done:
 		// Function completed successfully within timeout
-		return
+		return a
 	case <-ctx.Done():
 		// Timeout exceeded
 		elapsed := time.Since(startTime)
+		a.failed = true
 		a.errorMsg = fmt.Sprintf("WithinTimeout: function did not complete within timeout\n  timeout: %v\n  elapsed: %v", timeout, elapsed)
-		return
+
+		// Call the TestingT interface to actually fail the test
+		if testingT, ok := a.t.(TestingT); ok {
+			testingT.Errorf("%s", a.errorMsg)
+		}
+		return a
 	}
 }

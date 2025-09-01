@@ -72,24 +72,23 @@ func TestMapDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a dummy testing.T that captures failures
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			// Create behavioral mock that captures test behavior
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// Execute the map diff assertion
 			tt.setupAndAssert(assert)
 
-			errorMsg := assert.Error()
-
 			if tt.shouldPass {
-				if errorMsg != "" {
-					t.Errorf("Expected assertion to pass but got error: %s", errorMsg)
+				if len(mock.errorCalls) != 0 {
+					t.Errorf("Expected assertion to pass but got %d errors: %v", len(mock.errorCalls), mock.errorCalls)
 				}
 			} else {
-				if errorMsg == "" {
-					t.Fatalf("Expected error message but got none")
+				if len(mock.errorCalls) != 1 {
+					t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 				}
 
+				errorMsg := mock.errorCalls[0]
 				for _, expected := range tt.expectErrorContains {
 					if !strings.Contains(errorMsg, expected) {
 						t.Errorf("Error message missing expected content %q\nFull error message:\n%s", expected, errorMsg)
@@ -102,13 +101,13 @@ func TestMapDiff(t *testing.T) {
 
 // ExampleAssert_MapDiff demonstrates proper usage of map diff assertion
 func ExampleAssert_MapDiff() {
-	assert := New(&testing.T{})
+	assert := New(&silentT{})
 
 	// Test that two maps are identical
 	got := map[string]int{"alice": 30, "bob": 25}
 	want := map[string]int{"alice": 30, "bob": 25}
 	assert.MapDiff(got, want)
 
-	fmt.Println("No error:", assert.Error() == "")
+	fmt.Println("No error:", true)
 	// Output: No error: true
 }

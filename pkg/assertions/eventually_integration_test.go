@@ -9,10 +9,14 @@ import (
 	"time"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestEventuallyIntegration tests Eventually assertions in real async scenarios.
 func TestEventuallyIntegration(t *testing.T) {
 	t.Run("HTTPServerReadiness", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		// Start server in background
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,13 +35,16 @@ func TestEventuallyIntegration(t *testing.T) {
 			return resp.StatusCode == http.StatusOK
 		}, 2*time.Second, 100*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Server readiness check failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (server becomes ready)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Server readiness check should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run("ConcurrentWorkersCompletion", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		const numWorkers = 5
 		var wg sync.WaitGroup
@@ -68,13 +75,16 @@ func TestEventuallyIntegration(t *testing.T) {
 
 		wg.Wait() // Ensure clean shutdown
 
-		if assert.Error() != "" {
-			t.Errorf("Workers completion check failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (all workers complete)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Workers completion check should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run("MessageProcessingQueue", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		// Simulate message queue
 		type Message struct {
@@ -111,13 +121,16 @@ func TestEventuallyIntegration(t *testing.T) {
 			return true
 		}, 1*time.Second, 25*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Message processing check failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (all messages processed)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Message processing check should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run("DatabaseConnectionPool", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		// Simulate database connection pool
 		type ConnectionPool struct {
@@ -146,8 +159,9 @@ func TestEventuallyIntegration(t *testing.T) {
 			return ready
 		}, 1*time.Second, 50*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Connection pool readiness check failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (connection pool reaches capacity)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Connection pool readiness check should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 }
@@ -155,7 +169,9 @@ func TestEventuallyIntegration(t *testing.T) {
 // TestNeverIntegration tests Never assertions in real async scenarios.
 func TestNeverIntegration(t *testing.T) {
 	t.Run("NoMemoryLeaksDetected", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		// Simulate memory monitoring
 		var currentMemory int64
@@ -180,13 +196,16 @@ func TestNeverIntegration(t *testing.T) {
 			return exceeded
 		}, 500*time.Millisecond, 50*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Memory leak detection failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (memory never exceeds threshold)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Memory leak detection should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run("NoUnauthorisedAccess", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		// Simulate security monitoring
 		var unauthorisedAttempts int
@@ -208,13 +227,16 @@ func TestNeverIntegration(t *testing.T) {
 			return attempts > 0
 		}, 300*time.Millisecond, 40*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Security monitoring failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (no unauthorized access detected)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Security monitoring should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 
 	t.Run("NoDeadlockDetection", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		// Simulate deadlock detection system
 		deadlockDetected := false
@@ -244,8 +266,9 @@ func TestNeverIntegration(t *testing.T) {
 			return deadlockDetected
 		}, 400*time.Millisecond, 50*time.Millisecond)
 
-		if assert.Error() != "" {
-			t.Errorf("Deadlock detection failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (no deadlocks detected)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Deadlock detection should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 	})
 }
@@ -253,7 +276,9 @@ func TestNeverIntegration(t *testing.T) {
 // TestEventuallyWithIntegration tests EventuallyWith in complex scenarios.
 func TestEventuallyWithIntegration(t *testing.T) {
 	t.Run("BackoffRetryConnection", func(t *testing.T) {
-		assert := New(t)
+		// Test GoWise framework behavioral contract
+		mock := &behaviorMockT{}
+		assert := New(mock)
 
 		// Simulate unreliable service that becomes available
 		var attempts int32
@@ -280,8 +305,9 @@ func TestEventuallyWithIntegration(t *testing.T) {
 			return true
 		}, config)
 
-		if assert.Error() != "" {
-			t.Errorf("Backoff retry failed: %s", assert.Error())
+		// Framework behavior: PASS = no Errorf calls (service becomes available with backoff)
+		if len(mock.errorCalls) != 0 {
+			t.Errorf("Backoff retry should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 		}
 
 		// With backoff, should require fewer attempts
@@ -303,7 +329,9 @@ func TestConcurrentAssertions(t *testing.T) {
 			go func(assertionID int) {
 				defer wg.Done()
 
-				assert := New(t)
+				// Test GoWise framework behavioral contract
+				mock := &behaviorMockT{}
+				assert := New(mock)
 				delay := time.Duration(50*(assertionID+1)) * time.Millisecond
 				var ready int32
 
@@ -316,8 +344,9 @@ func TestConcurrentAssertions(t *testing.T) {
 					return atomic.LoadInt32(&ready) == 1
 				}, 1*time.Second, 20*time.Millisecond)
 
-				if assert.Error() != "" {
-					t.Errorf("Assertion %d failed: %s", assertionID, assert.Error())
+				// Framework behavior: PASS = no Errorf calls (condition becomes ready)
+				if len(mock.errorCalls) != 0 {
+					t.Errorf("Assertion %d should pass (no Errorf calls), got %d: %v", assertionID, len(mock.errorCalls), mock.errorCalls)
 				}
 			}(i)
 		}
@@ -334,7 +363,9 @@ func TestConcurrentAssertions(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 
-				assert := New(t)
+				// Test GoWise framework behavioral contract
+				mock := &behaviorMockT{}
+				assert := New(mock)
 				var ready int32
 
 				go func() {
@@ -346,8 +377,9 @@ func TestConcurrentAssertions(t *testing.T) {
 					return atomic.LoadInt32(&ready) == 1
 				}, 500*time.Millisecond, 25*time.Millisecond)
 
-				if assert.Error() != "" {
-					t.Errorf("Eventually assertion %d failed: %s", id, assert.Error())
+				// Framework behavior: PASS = no Errorf calls (condition becomes ready)
+				if len(mock.errorCalls) != 0 {
+					t.Errorf("Eventually assertion %d should pass (no Errorf calls), got %d: %v", id, len(mock.errorCalls), mock.errorCalls)
 				}
 			}(i)
 		}
@@ -358,14 +390,17 @@ func TestConcurrentAssertions(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 
-				assert := New(t)
+				// Test GoWise framework behavioral contract
+				mock := &behaviorMockT{}
+				assert := New(mock)
 
 				assert.Never(func() bool {
 					return false // Never becomes true
 				}, 200*time.Millisecond, 30*time.Millisecond)
 
-				if assert.Error() != "" {
-					t.Errorf("Never assertion %d failed: %s", id, assert.Error())
+				// Framework behavior: PASS = no Errorf calls (condition never becomes true)
+				if len(mock.errorCalls) != 0 {
+					t.Errorf("Never assertion %d should pass (no Errorf calls), got %d: %v", id, len(mock.errorCalls), mock.errorCalls)
 				}
 			}(i)
 		}

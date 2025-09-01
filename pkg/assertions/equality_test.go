@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestEqualityFastPath tests the fast-path optimisations for comparable types.
 func TestEqualityFastPath(t *testing.T) {
 	tests := []struct {
@@ -39,15 +41,17 @@ func TestEqualityFastPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert := New(t)
+			// Test GoWise framework behavioral contract
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.Equal(tt.got, tt.want)
 
-			hasError := assert.Error() != ""
-			if tt.shouldPass && hasError {
-				t.Errorf("Expected pass but got error: %s", assert.Error())
-			} else if !tt.shouldPass && !hasError {
-				t.Errorf("Expected failure but assertion passed")
+			// Framework behavior: PASS = no Errorf calls, FAIL = exactly 1 Errorf call
+			if tt.shouldPass && len(mock.errorCalls) != 0 {
+				t.Errorf("Equal should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
+			} else if !tt.shouldPass && len(mock.errorCalls) != 1 {
+				t.Errorf("Equal should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
 		})
 	}
@@ -60,19 +64,20 @@ func TestEqualityFastPath(t *testing.T) {
 		y := 42
 		p3 := &y
 
-		assert := New(t)
-
 		// Same pointer should pass
-		assert.Equal(p1, p2)
-		if assert.Error() != "" {
-			t.Errorf("Expected same pointer to be equal: %s", assert.Error())
+		mock1 := &behaviorMockT{}
+		assert1 := New(mock1)
+		assert1.Equal(p1, p2)
+		if len(mock1.errorCalls) != 0 {
+			t.Errorf("Same pointer should pass (no Errorf calls), got %d: %v", len(mock1.errorCalls), mock1.errorCalls)
 		}
 
 		// Different pointers should fail
-		assert = New(t) // reset
-		assert.Equal(p1, p3)
-		if assert.Error() == "" {
-			t.Errorf("Expected different pointers to be not equal")
+		mock2 := &behaviorMockT{}
+		assert2 := New(mock2)
+		assert2.Equal(p1, p3)
+		if len(mock2.errorCalls) != 1 {
+			t.Errorf("Different pointers should fail (1 Errorf call), got %d: %v", len(mock2.errorCalls), mock2.errorCalls)
 		}
 	})
 }
@@ -94,15 +99,17 @@ func TestNotEqualFastPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert := New(t)
+			// Test GoWise framework behavioral contract
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.NotEqual(tt.got, tt.want)
 
-			hasError := assert.Error() != ""
-			if tt.shouldPass && hasError {
-				t.Errorf("Expected pass but got error: %s", assert.Error())
-			} else if !tt.shouldPass && !hasError {
-				t.Errorf("Expected failure but assertion passed")
+			// Framework behavior: PASS = no Errorf calls, FAIL = exactly 1 Errorf call
+			if tt.shouldPass && len(mock.errorCalls) != 0 {
+				t.Errorf("NotEqual should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
+			} else if !tt.shouldPass && len(mock.errorCalls) != 1 {
+				t.Errorf("NotEqual should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
 		})
 	}
@@ -161,15 +168,17 @@ func TestDeepEqualComplexTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert := New(t)
+			// Test GoWise framework behavioral contract
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.DeepEqual(tt.got, tt.want)
 
-			hasError := assert.Error() != ""
-			if tt.shouldPass && hasError {
-				t.Errorf("Expected pass but got error: %s", assert.Error())
-			} else if !tt.shouldPass && !hasError {
-				t.Errorf("Expected failure but assertion passed")
+			// Framework behavior: PASS = no Errorf calls, FAIL = exactly 1 Errorf call
+			if tt.shouldPass && len(mock.errorCalls) != 0 {
+				t.Errorf("DeepEqual should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
+			} else if !tt.shouldPass && len(mock.errorCalls) != 1 {
+				t.Errorf("DeepEqual should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
 		})
 	}
@@ -196,15 +205,17 @@ func TestSamePointerIdentity(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert := New(t)
+			// Test GoWise framework behavioral contract
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			assert.Same(tt.got, tt.want)
 
-			hasError := assert.Error() != ""
-			if tt.shouldPass && hasError {
-				t.Errorf("Expected pass but got error: %s", assert.Error())
-			} else if !tt.shouldPass && !hasError {
-				t.Errorf("Expected failure but assertion passed")
+			// Framework behavior: PASS = no Errorf calls, FAIL = exactly 1 Errorf call
+			if tt.shouldPass && len(mock.errorCalls) != 0 {
+				t.Errorf("Same should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
+			} else if !tt.shouldPass && len(mock.errorCalls) != 1 {
+				t.Errorf("Same should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
 		})
 	}
@@ -224,15 +235,17 @@ func TestBooleanAssertions(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				assert := New(t)
+				// Test GoWise framework behavioral contract
+				mock := &behaviorMockT{}
+				assert := New(mock)
 
 				assert.True(tt.condition)
 
-				hasError := assert.Error() != ""
-				if tt.shouldPass && hasError {
-					t.Errorf("Expected pass but got error: %s", assert.Error())
-				} else if !tt.shouldPass && !hasError {
-					t.Errorf("Expected failure but assertion passed")
+				// Framework behavior: PASS = no Errorf calls, FAIL = exactly 1 Errorf call
+				if tt.shouldPass && len(mock.errorCalls) != 0 {
+					t.Errorf("True should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
+				} else if !tt.shouldPass && len(mock.errorCalls) != 1 {
+					t.Errorf("True should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 				}
 			})
 		}
@@ -250,15 +263,17 @@ func TestBooleanAssertions(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				assert := New(t)
+				// Test GoWise framework behavioral contract
+				mock := &behaviorMockT{}
+				assert := New(mock)
 
 				assert.False(tt.condition)
 
-				hasError := assert.Error() != ""
-				if tt.shouldPass && hasError {
-					t.Errorf("Expected pass but got error: %s", assert.Error())
-				} else if !tt.shouldPass && !hasError {
-					t.Errorf("Expected failure but assertion passed")
+				// Framework behavior: PASS = no Errorf calls, FAIL = exactly 1 Errorf call
+				if tt.shouldPass && len(mock.errorCalls) != 0 {
+					t.Errorf("False should pass (no Errorf calls), got %d: %v", len(mock.errorCalls), mock.errorCalls)
+				} else if !tt.shouldPass && len(mock.errorCalls) != 1 {
+					t.Errorf("False should fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 				}
 			})
 		}

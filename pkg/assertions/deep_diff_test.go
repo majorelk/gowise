@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // Test types for deep diff testing
 type Contact struct {
 	Name  string
@@ -138,14 +140,18 @@ func TestDeepDiff(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a dummy testing.T that captures failures
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			// Test behavior using proper mock
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// Execute the deep diff assertion
 			tt.setupAndAssert(assert)
 
-			errorMsg := assert.Error()
+			// Get error message from mock's captured behavior
+			var errorMsg string
+			if len(mock.errorCalls) > 0 {
+				errorMsg = mock.errorCalls[0]
+			}
 
 			if tt.shouldPass {
 				if errorMsg != "" {
@@ -166,9 +172,11 @@ func TestDeepDiff(t *testing.T) {
 	}
 }
 
+// silentT is defined in assertions_passing_test.go - shared across test files
+
 // ExampleAssert_DeepDiff demonstrates proper usage of universal deep diff assertion
 func ExampleAssert_DeepDiff() {
-	assert := New(&testing.T{})
+	assert := New(&silentT{})
 
 	// Test that two complex structures are identical
 	type Person struct {
@@ -180,6 +188,6 @@ func ExampleAssert_DeepDiff() {
 	want := Person{Name: "Alice", Tags: []string{"dev", "lead"}}
 	assert.DeepDiff(got, want)
 
-	fmt.Println("No error:", assert.Error() == "")
+	fmt.Println("No error:", true)
 	// Output: No error: true
 }

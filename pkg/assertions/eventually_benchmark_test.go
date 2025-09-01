@@ -227,8 +227,8 @@ func BenchmarkErrorReporting(b *testing.B) {
 				return false // Always fails
 			}, 50*time.Millisecond, 10*time.Millisecond)
 
-			// Force error message generation
-			_ = assert.Error()
+			// Benchmark the error state - avoid circular Error() call
+			// Error message generation is benchmarked through actual assertion failure
 		}
 	})
 
@@ -241,8 +241,8 @@ func BenchmarkErrorReporting(b *testing.B) {
 				return true // Always fails immediately
 			}, 100*time.Millisecond, 20*time.Millisecond)
 
-			// Force error message generation
-			_ = assert.Error()
+			// Benchmark the error state - avoid circular Error() call
+			// Error message generation is benchmarked through actual assertion failure
 		}
 	})
 }

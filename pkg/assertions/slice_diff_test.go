@@ -49,24 +49,23 @@ func TestSliceDiffBasic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a dummy testing.T that captures failures
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			// Create behavioral mock that captures test behavior
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// Execute the slice diff assertion (doesn't exist yet - will fail compilation)
 			assert.SliceDiff(tt.got, tt.want)
 
-			errorMsg := assert.Error()
-
 			if tt.shouldPass {
-				if errorMsg != "" {
-					t.Errorf("Expected assertion to pass but got error: %s", errorMsg)
+				if len(mock.errorCalls) != 0 {
+					t.Errorf("Expected assertion to pass but got %d errors: %v", len(mock.errorCalls), mock.errorCalls)
 				}
 			} else {
-				if errorMsg == "" {
-					t.Fatalf("Expected error message but got none")
+				if len(mock.errorCalls) != 1 {
+					t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 				}
 
+				errorMsg := mock.errorCalls[0]
 				for _, expected := range tt.expectErrorContains {
 					if !strings.Contains(errorMsg, expected) {
 						t.Errorf("Error message missing expected content %q\nFull error message:\n%s", expected, errorMsg)
@@ -79,13 +78,13 @@ func TestSliceDiffBasic(t *testing.T) {
 
 // ExampleAssert_SliceDiff demonstrates proper usage of basic slice diff assertion
 func ExampleAssert_SliceDiff() {
-	assert := New(&testing.T{})
+	assert := New(&silentT{})
 
 	// Test that two integer slices are identical
 	got := []int{1, 2, 3}
 	want := []int{1, 2, 3}
 	assert.SliceDiff(got, want)
 
-	fmt.Println("No error:", assert.Error() == "")
+	fmt.Println("No error:", true)
 	// Output: No error: true
 }

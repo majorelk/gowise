@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// behaviorMockT is defined in assertions_passing_test.go - shared across test files
+
 // TestCollectionDiffIntegration tests that collection assertions provide enhanced error messages
 // through the public API, testing observable behaviour rather than internal implementation.
 func TestCollectionDiffIntegration(t *testing.T) {
@@ -114,16 +116,18 @@ func TestCollectionDiffIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a dummy testing.T that captures failures
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// Execute the assertion
 			tt.setupAndAssert(assert)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			// Framework behavior: FAIL = exactly 1 Errorf call with expected content
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
+
+			errorMsg := mock.errorCalls[0]
 
 			// Check that all expected parts are in the error message
 			for _, expected := range tt.expectErrorContains {

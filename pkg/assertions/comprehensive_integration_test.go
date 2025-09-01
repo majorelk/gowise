@@ -84,17 +84,17 @@ func TestComprehensiveEnhancedDiffIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// Execute the assertion (should fail)
 			tt.setupAndAssert(assert)
 
-			errorMsg := assert.Error()
-			if errorMsg == "" {
-				t.Fatalf("Expected error message but got none")
+			if len(mock.errorCalls) != 1 {
+				t.Fatalf("Expected assertion to fail (1 Errorf call), got %d: %v", len(mock.errorCalls), mock.errorCalls)
 			}
 
+			errorMsg := mock.errorCalls[0]
 			// Check that all expected parts are in the error message
 			for _, expected := range tt.expectErrorContains {
 				if !strings.Contains(errorMsg, expected) {
@@ -149,19 +149,18 @@ func TestBroadEnhancedDiffCompatibility(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dummyT := &capturingT{}
-			assert := New(dummyT)
+			mock := &behaviorMockT{}
+			assert := New(mock)
 
 			// Execute the assertion
 			tt.setupAndAssert(assert)
 
-			errorMsg := assert.Error()
-
 			if tt.shouldUseeDiff {
 				// Should have enhanced diff features
-				if errorMsg == "" {
-					t.Fatalf("Expected error message for enhanced diff test")
+				if len(mock.errorCalls) != 1 {
+					t.Fatalf("Expected assertion to fail (1 Errorf call) for enhanced diff test, got %d: %v", len(mock.errorCalls), mock.errorCalls)
 				}
+				errorMsg := mock.errorCalls[0]
 				if !strings.Contains(errorMsg, "difference at line") && !strings.Contains(errorMsg, "string values differ at position") {
 					t.Errorf("Expected enhanced diff markers in error message, got: %s", errorMsg)
 				}
