@@ -92,8 +92,11 @@ type Assert struct {
 }
 
 // New creates a new Assert instance with the given testing context.
+// Note: Allocates shared failure state on heap for thread-safe chaining across instances.
 func New(t interface{}) *Assert {
-	failed := int32(0) // Initialize shared failure state
+	// Initialize shared failure state - will escape to heap for pointer sharing
+	var failed int32 = 0
+	
 	return &Assert{
 		t:          t,
 		failed:     &failed,        // Pointer to shared atomic int32
