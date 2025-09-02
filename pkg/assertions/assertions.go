@@ -92,10 +92,10 @@ type Assert struct {
 }
 
 // New creates a new Assert instance with the given testing context.
-// Note: Allocates shared failure state on heap for thread-safe chaining across instances.
+// Note: Allocates one int32 on heap to enable fail-fast chaining across all WithDiffFormat instances.
 func New(t interface{}) *Assert {
 	// Initialize shared failure state - will escape to heap for pointer sharing
-	var failed int32 = 0
+	var failed int32
 
 	return &Assert{
 		t:          t,
