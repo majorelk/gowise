@@ -96,7 +96,7 @@ type Assert struct {
 func New(t interface{}) *Assert {
 	// Initialize shared failure state - will escape to heap for pointer sharing
 	var failed int32 = 0
-	
+
 	return &Assert{
 		t:          t,
 		failed:     &failed,        // Pointer to shared atomic int32
