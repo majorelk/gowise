@@ -87,27 +87,32 @@ const (
 type Assert struct {
 	t          interface{}
 	errorMsg   string
-	failed     int32      // atomic: 0=not failed, 1=failed (for fail-fast chaining)
+	failed     *int32     // atomic: pointer to shared failure state (0=not failed, 1=failed)
 	diffFormat DiffFormat // Preferred format for multi-line string diffs
 }
 
 // New creates a new Assert instance with the given testing context.
+// Note: Allocates one int32 on the heap to enable fail-fast chaining across all chain methods that return new Assert instances sharing the failure state (e.g., WithDiffFormat).
 func New(t interface{}) *Assert {
+	// Initialize shared failure state - will escape to heap for pointer sharing
+	var failed int32
+
 	return &Assert{
 		t:          t,
+		failed:     &failed,        // Pointer to shared atomic int32
 		diffFormat: DiffFormatAuto, // Default to automatic format selection
 	}
 }
 
 // WithDiffFormat returns a new Assert instance with the specified diff format preference.
 // This follows GoWise principles of immutable configuration.
-// NOTE: Creates an independent assertion chain with its own failure state.
+// NOTE: Shares failure state with original for proper fail-fast chaining.
 func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
-	// Create new instance with independent failure state
+	// Share the same atomic failure state pointer for proper chaining
 	newAssert := &Assert{
 		t:          a.t,
 		errorMsg:   a.errorMsg,
-		failed:     a.failed, // Copies the current failure state value
+		failed:     a.failed, // Share the same atomic pointer
 		diffFormat: format,
 	}
 	return newAssert
@@ -116,13 +121,13 @@ func (a *Assert) WithDiffFormat(format DiffFormat) *Assert {
 // shouldSkipDueToFailure checks if we should skip this assertion due to fail-fast
 // Thread-safe for concurrent access.
 func (a *Assert) shouldSkipDueToFailure() bool {
-	return atomic.LoadInt32(&a.failed) != 0
+	return atomic.LoadInt32(a.failed) != 0
 }
 
 // markAsFailed atomically marks this assertion chain as failed
 // Thread-safe for concurrent access.
 func (a *Assert) markAsFailed() bool {
-	return atomic.CompareAndSwapInt32(&a.failed, 0, 1)
+	return atomic.CompareAndSwapInt32(a.failed, 0, 1)
 }
 
 // reportErrorConsistent provides consistent error reporting across all assertion methods
@@ -479,7 +484,7 @@ func (a *Assert) Error() string {
 // HasFailed returns true if any assertion in the chain has failed.
 // This enables fail-fast chaining behaviour.
 func (a *Assert) HasFailed() bool {
-	return atomic.LoadInt32(&a.failed) != 0
+	return atomic.LoadInt32(a.failed) != 0
 }
 
 // Nil asserts that a value is nil.
